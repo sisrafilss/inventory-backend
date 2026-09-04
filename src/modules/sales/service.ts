@@ -1,7 +1,7 @@
-import { prisma } from '../../config/db.js';
-import { AppError } from '../../errors/AppError.js';
-import { logAudit } from '../../utils/audit.js';
-import { SaleStatus, StockMovementType, Role, Prisma } from '@prisma/client';
+import { prisma } from "../../config/db.js";
+import { AppError } from "../../errors/AppError.js";
+import { logAudit } from "../../utils/audit.js";
+import { SaleStatus, StockMovementType, Role, Prisma } from "@prisma/client";
 
 export class SalesService {
   private static generateReferenceNumber(): string {
@@ -17,7 +17,7 @@ export class SalesService {
       customerPhone?: string;
       note?: string;
       items: Array<{ productId: string; quantity: number }>;
-    }
+    },
   ) {
     // 1. Fetch products to get current selling prices and verify availability
     const productIds = data.items.map((i) => i.productId);
@@ -30,10 +30,18 @@ export class SalesService {
     for (const item of data.items) {
       const prod = productMap.get(item.productId);
       if (!prod) {
-        throw new AppError(`Product with ID "${item.productId}" not found.`, 404, 'PRODUCT_NOT_FOUND');
+        throw new AppError(
+          `Product with ID "${item.productId}" not found.`,
+          404,
+          "PRODUCT_NOT_FOUND",
+        );
       }
       if (!prod.isActive) {
-        throw new AppError(`Product "${prod.name}" is currently inactive and cannot be sold.`, 400, 'PRODUCT_INACTIVE');
+        throw new AppError(
+          `Product "${prod.name}" is currently inactive and cannot be sold.`,
+          400,
+          "PRODUCT_INACTIVE",
+        );
       }
     }
 
@@ -85,8 +93,8 @@ export class SalesService {
 
     await logAudit({
       actorId: salesOfficerId,
-      action: 'SALE_SUBMITTED',
-      entityType: 'Sale',
+      action: "SALE_SUBMITTED",
+      entityType: "Sale",
       entityId: sale.id,
       metadata: {
         referenceNumber: sale.referenceNumber,
@@ -116,7 +124,7 @@ export class SalesService {
       search?: string;
       startDate?: string;
       endDate?: string;
-    }
+    },
   ) {
     const page = query.page && query.page > 0 ? query.page : 1;
     const limit = query.limit && query.limit > 0 ? query.limit : 20;
@@ -138,9 +146,9 @@ export class SalesService {
     if (query.search && query.search.trim()) {
       const s = query.search.trim();
       where.OR = [
-        { referenceNumber: { contains: s, mode: 'insensitive' } },
-        { customerName: { contains: s, mode: 'insensitive' } },
-        { customerPhone: { contains: s, mode: 'insensitive' } },
+        { referenceNumber: { contains: s, mode: "insensitive" } },
+        { customerName: { contains: s, mode: "insensitive" } },
+        { customerPhone: { contains: s, mode: "insensitive" } },
       ];
     }
 
@@ -162,7 +170,7 @@ export class SalesService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
           salesOfficer: {
             select: { id: true, name: true, email: true },
@@ -205,7 +213,10 @@ export class SalesService {
     };
   }
 
-  static async getSaleById(requestUser: { id: string; role: Role }, id: string) {
+  static async getSaleById(
+    requestUser: { id: string; role: Role },
+    id: string,
+  ) {
     const sale = await prisma.sale.findUnique({
       where: { id },
       include: {
@@ -221,7 +232,13 @@ export class SalesService {
         items: {
           include: {
             product: {
-              select: { id: true, name: true, sku: true, unit: true, quantity: true },
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+                unit: true,
+                quantity: true,
+              },
             },
           },
         },
@@ -229,12 +246,19 @@ export class SalesService {
     });
 
     if (!sale) {
-      throw new AppError('Sale not found.', 404, 'SALE_NOT_FOUND');
+      throw new AppError("Sale not found.", 404, "SALE_NOT_FOUND");
     }
 
     // Role check: Sales Officers can only view their own sale
-    if (requestUser.role === Role.SALES_OFFICER && sale.salesOfficerId !== requestUser.id) {
-      throw new AppError('Forbidden: You can only view your own sales.', 403, 'FORBIDDEN');
+    if (
+      requestUser.role === Role.SALES_OFFICER &&
+      sale.salesOfficerId !== requestUser.id
+    ) {
+      throw new AppError(
+        "Forbidden: You can only view your own sales.",
+        403,
+        "FORBIDDEN",
+      );
     }
 
     return {
@@ -260,7 +284,7 @@ export class SalesService {
       });
 
       if (!sale) {
-        throw new AppError('Sale not found.', 404, 'SALE_NOT_FOUND');
+        throw new AppError("Sale not found.", 404, "SALE_NOT_FOUND");
       }
 
       // 2. Concurrency / Duplicate Approval Prevention
@@ -268,7 +292,7 @@ export class SalesService {
         throw new AppError(
           `Cannot approve sale: Status is already ${sale.status}.`,
           409,
-          'SALE_NOT_PENDING'
+          "SALE_NOT_PENDING",
         );
       }
 
@@ -279,14 +303,18 @@ export class SalesService {
         });
 
         if (!product) {
-          throw new AppError(`Product with ID "${item.productId}" no longer exists.`, 404, 'PRODUCT_NOT_FOUND');
+          throw new AppError(
+            `Product with ID "${item.productId}" no longer exists.`,
+            404,
+            "PRODUCT_NOT_FOUND",
+          );
         }
 
         if (product.quantity < item.quantity) {
           throw new AppError(
             `Insufficient stock for "${product.name}" (SKU: ${product.sku}). Available: ${product.quantity}, Required: ${item.quantity}.`,
             400,
-            'INSUFFICIENT_STOCK'
+            "INSUFFICIENT_STOCK",
           );
         }
 
@@ -307,7 +335,7 @@ export class SalesService {
             quantityBefore: qtyBefore,
             quantityChange: -item.quantity,
             quantityAfter: qtyAfter,
-            referenceType: 'SALE',
+            referenceType: "SALE",
             referenceId: sale.id,
             reason: `Deducted upon sale approval (#${sale.referenceNumber}) and cash handover confirmation`,
             performedById: approverId,
@@ -344,8 +372,8 @@ export class SalesService {
       await logAudit(
         {
           actorId: approverId,
-          action: 'SALE_APPROVED',
-          entityType: 'Sale',
+          action: "SALE_APPROVED",
+          entityType: "Sale",
           entityId: id,
           metadata: {
             referenceNumber: approvedSale.referenceNumber,
@@ -353,7 +381,7 @@ export class SalesService {
             salesOfficerId: approvedSale.salesOfficerId,
           },
         },
-        tx
+        tx,
       );
 
       return {
@@ -374,14 +402,14 @@ export class SalesService {
     });
 
     if (!sale) {
-      throw new AppError('Sale not found.', 404, 'SALE_NOT_FOUND');
+      throw new AppError("Sale not found.", 404, "SALE_NOT_FOUND");
     }
 
     if (sale.status !== SaleStatus.PENDING) {
       throw new AppError(
         `Cannot reject sale: Status is already ${sale.status}.`,
         409,
-        'SALE_NOT_PENDING'
+        "SALE_NOT_PENDING",
       );
     }
 
@@ -412,8 +440,8 @@ export class SalesService {
 
     await logAudit({
       actorId: rejectorId,
-      action: 'SALE_REJECTED',
-      entityType: 'Sale',
+      action: "SALE_REJECTED",
+      entityType: "Sale",
       entityId: id,
       metadata: {
         referenceNumber: sale.referenceNumber,

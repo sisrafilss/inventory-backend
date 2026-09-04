@@ -1,6 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
-import { AnyZodObject, ZodError } from 'zod';
-import { AppError } from '../errors/AppError.js';
+import { Request, Response, NextFunction } from "express";
+import { AnyZodObject, ZodError } from "zod";
+import { AppError } from "../errors/AppError.js";
 
 export const validateRequest = (schema: AnyZodObject) => {
   return async (req: Request, res: Response, next: NextFunction) => {
@@ -18,10 +18,12 @@ export const validateRequest = (schema: AnyZodObject) => {
       if (error instanceof ZodError) {
         const errorMap: Record<string, string> = {};
         error.errors.forEach((err) => {
-          const path = err.path.slice(1).join('.') || err.path.join('.');
+          const path = err.path.slice(1).join(".") || err.path.join(".");
           errorMap[path] = err.message;
         });
-        return next(new AppError('Validation failed.', 422, 'VALIDATION_ERROR', errorMap));
+        return next(
+          new AppError("Validation failed.", 422, "VALIDATION_ERROR", errorMap),
+        );
       }
       next(error);
     }

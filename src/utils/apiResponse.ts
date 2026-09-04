@@ -1,4 +1,4 @@
-import { Response } from 'express';
+import { Response } from "express";
 
 export interface PaginationMeta {
   page: number;
@@ -7,7 +7,13 @@ export interface PaginationMeta {
   totalPages: number;
 }
 
-export const sendSuccess = <T>(res: Response, data: T, message?: string, statusCode = 200, meta?: PaginationMeta) => {
+export const sendSuccess = <T>(
+  res: Response,
+  data: T,
+  message?: string,
+  statusCode = 200,
+  meta?: PaginationMeta,
+) => {
   return res.status(statusCode).json({
     success: true,
     ...(message ? { message } : {}),
@@ -20,8 +26,8 @@ export const sendError = (
   res: Response,
   message: string,
   statusCode = 400,
-  code = 'ERROR',
-  errors?: Record<string, string>
+  code = "ERROR",
+  errors?: Record<string, string>,
 ) => {
   return res.status(statusCode).json({
     success: false,

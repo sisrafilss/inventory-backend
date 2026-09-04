@@ -1,7 +1,7 @@
-import { prisma } from '../../config/db.js';
-import { AppError } from '../../errors/AppError.js';
-import { logAudit } from '../../utils/audit.js';
-import { StockMovementType, Prisma } from '@prisma/client';
+import { prisma } from "../../config/db.js";
+import { AppError } from "../../errors/AppError.js";
+import { logAudit } from "../../utils/audit.js";
+import { StockMovementType, Prisma } from "@prisma/client";
 
 export class InventoryService {
   static async adjustStock(
@@ -11,7 +11,7 @@ export class InventoryService {
       type: StockMovementType;
       quantity: number;
       reason: string;
-    }
+    },
   ) {
     const rawQty = Math.abs(data.quantity);
     let delta = 0;
@@ -31,7 +31,11 @@ export class InventoryService {
         delta = data.quantity; // signed quantity permitted
         break;
       default:
-        throw new AppError('Invalid adjustment type.', 400, 'INVALID_ADJUSTMENT_TYPE');
+        throw new AppError(
+          "Invalid adjustment type.",
+          400,
+          "INVALID_ADJUSTMENT_TYPE",
+        );
     }
 
     // Execute adjustment inside a transaction with row locking
@@ -41,7 +45,7 @@ export class InventoryService {
       });
 
       if (!product) {
-        throw new AppError('Product not found.', 404, 'PRODUCT_NOT_FOUND');
+        throw new AppError("Product not found.", 404, "PRODUCT_NOT_FOUND");
       }
 
       const qtyBefore = product.quantity;
@@ -51,7 +55,7 @@ export class InventoryService {
         throw new AppError(
           `Adjustment failed: Cannot reduce stock below zero. Current stock is ${qtyBefore}, attempted change is ${delta}.`,
           400,
-          'INSUFFICIENT_STOCK'
+          "INSUFFICIENT_STOCK",
         );
       }
 
@@ -67,7 +71,7 @@ export class InventoryService {
           quantityBefore: qtyBefore,
           quantityChange: delta,
           quantityAfter: qtyAfter,
-          referenceType: 'MANUAL_ADJUSTMENT',
+          referenceType: "MANUAL_ADJUSTMENT",
           reason: data.reason.trim(),
           performedById: actorId,
         },
@@ -81,8 +85,8 @@ export class InventoryService {
       await logAudit(
         {
           actorId,
-          action: 'STOCK_ADJUSTED',
-          entityType: 'Product',
+          action: "STOCK_ADJUSTED",
+          entityType: "Product",
           entityId: data.productId,
           metadata: {
             productName: product.name,
@@ -94,7 +98,7 @@ export class InventoryService {
             reason: data.reason,
           },
         },
-        tx
+        tx,
       );
 
       return {
@@ -155,7 +159,7 @@ export class InventoryService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
           product: {
             select: { id: true, name: true, sku: true, unit: true },
@@ -203,13 +207,13 @@ export class InventoryService {
       totalCostValue += qty * cost;
       totalRetailValue += qty * selling;
 
-      let stockStatus: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' = 'IN_STOCK';
+      let stockStatus: "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK" = "IN_STOCK";
       if (qty <= 0) {
         outOfStockCount++;
-        stockStatus = 'OUT_OF_STOCK';
+        stockStatus = "OUT_OF_STOCK";
       } else if (qty <= p.reorderLevel) {
         lowStockCount++;
-        stockStatus = 'LOW_STOCK';
+        stockStatus = "LOW_STOCK";
       }
 
       return {

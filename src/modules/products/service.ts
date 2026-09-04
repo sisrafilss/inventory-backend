@@ -1,7 +1,7 @@
-import { prisma } from '../../config/db.js';
-import { AppError } from '../../errors/AppError.js';
-import { logAudit } from '../../utils/audit.js';
-import { Prisma, StockMovementType } from '@prisma/client';
+import { prisma } from "../../config/db.js";
+import { AppError } from "../../errors/AppError.js";
+import { logAudit } from "../../utils/audit.js";
+import { Prisma, StockMovementType } from "@prisma/client";
 
 export class ProductsService {
   static async listProducts(query: {
@@ -10,7 +10,7 @@ export class ProductsService {
     search?: string;
     categoryId?: string;
     isActive?: boolean;
-    stockStatus?: 'ALL' | 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
+    stockStatus?: "ALL" | "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK";
   }) {
     const page = query.page && query.page > 0 ? query.page : 1;
     const limit = query.limit && query.limit > 0 ? query.limit : 20;
@@ -29,12 +29,12 @@ export class ProductsService {
     if (query.search && query.search.trim()) {
       const search = query.search.trim();
       where.OR = [
-        { name: { contains: search, mode: 'insensitive' } },
-        { sku: { contains: search, mode: 'insensitive' } },
+        { name: { contains: search, mode: "insensitive" } },
+        { sku: { contains: search, mode: "insensitive" } },
       ];
     }
 
-    if (query.stockStatus === 'OUT_OF_STOCK') {
+    if (query.stockStatus === "OUT_OF_STOCK") {
       where.quantity = { lte: 0 };
     }
 
@@ -44,7 +44,7 @@ export class ProductsService {
         where,
         skip,
         take: limit,
-        orderBy: { name: 'asc' },
+        orderBy: { name: "asc" },
         include: {
           category: {
             select: { id: true, name: true },
@@ -55,11 +55,11 @@ export class ProductsService {
 
     // Format products with stockStatus
     const items = products.map((p) => {
-      let stockStatus: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' = 'IN_STOCK';
+      let stockStatus: "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK" = "IN_STOCK";
       if (p.quantity <= 0) {
-        stockStatus = 'OUT_OF_STOCK';
+        stockStatus = "OUT_OF_STOCK";
       } else if (p.quantity <= p.reorderLevel) {
-        stockStatus = 'LOW_STOCK';
+        stockStatus = "LOW_STOCK";
       }
 
       return {
@@ -71,18 +71,22 @@ export class ProductsService {
     });
 
     // If stockStatus was LOW_STOCK, filter in memory if needed
-    const filteredItems = query.stockStatus === 'LOW_STOCK'
-      ? items.filter((i) => i.stockStatus === 'LOW_STOCK')
-      : query.stockStatus === 'IN_STOCK'
-      ? items.filter((i) => i.stockStatus === 'IN_STOCK')
-      : items;
+    const filteredItems =
+      query.stockStatus === "LOW_STOCK"
+        ? items.filter((i) => i.stockStatus === "LOW_STOCK")
+        : query.stockStatus === "IN_STOCK"
+          ? items.filter((i) => i.stockStatus === "IN_STOCK")
+          : items;
 
     return {
       products: filteredItems,
       meta: {
         page,
         limit,
-        total: query.stockStatus && query.stockStatus !== 'ALL' ? filteredItems.length : total,
+        total:
+          query.stockStatus && query.stockStatus !== "ALL"
+            ? filteredItems.length
+            : total,
         totalPages: Math.ceil(total / limit),
       },
     };
@@ -99,14 +103,14 @@ export class ProductsService {
     });
 
     if (!product) {
-      throw new AppError('Product not found.', 404, 'PRODUCT_NOT_FOUND');
+      throw new AppError("Product not found.", 404, "PRODUCT_NOT_FOUND");
     }
 
-    let stockStatus: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' = 'IN_STOCK';
+    let stockStatus: "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK" = "IN_STOCK";
     if (product.quantity <= 0) {
-      stockStatus = 'OUT_OF_STOCK';
+      stockStatus = "OUT_OF_STOCK";
     } else if (product.quantity <= product.reorderLevel) {
-      stockStatus = 'LOW_STOCK';
+      stockStatus = "LOW_STOCK";
     }
 
     return {
@@ -130,7 +134,7 @@ export class ProductsService {
       reorderLevel?: number;
       description?: string;
       isActive?: boolean;
-    }
+    },
   ) {
     const sku = data.sku.trim().toUpperCase();
 
@@ -139,7 +143,11 @@ export class ProductsService {
     });
 
     if (existingSku) {
-      throw new AppError(`A product with SKU "${sku}" already exists.`, 409, 'SKU_EXISTS');
+      throw new AppError(
+        `A product with SKU "${sku}" already exists.`,
+        409,
+        "SKU_EXISTS",
+      );
     }
 
     const category = await prisma.category.findUnique({
@@ -147,11 +155,19 @@ export class ProductsService {
     });
 
     if (!category) {
-      throw new AppError('The specified category does not exist.', 404, 'CATEGORY_NOT_FOUND');
+      throw new AppError(
+        "The specified category does not exist.",
+        404,
+        "CATEGORY_NOT_FOUND",
+      );
     }
 
     if (!category.isActive) {
-      throw new AppError('Cannot create a product in an inactive category.', 400, 'CATEGORY_INACTIVE');
+      throw new AppError(
+        "Cannot create a product in an inactive category.",
+        400,
+        "CATEGORY_INACTIVE",
+      );
     }
 
     const initialQty = data.quantity || 0;
@@ -167,7 +183,8 @@ export class ProductsService {
           costPrice: data.costPrice,
           sellingPrice: data.sellingPrice,
           quantity: initialQty,
-          reorderLevel: data.reorderLevel !== undefined ? data.reorderLevel : 10,
+          reorderLevel:
+            data.reorderLevel !== undefined ? data.reorderLevel : 10,
           description: data.description?.trim(),
           isActive: data.isActive !== undefined ? data.isActive : true,
         },
@@ -181,7 +198,7 @@ export class ProductsService {
             quantityBefore: 0,
             quantityChange: initialQty,
             quantityAfter: initialQty,
-            reason: 'Opening stock on product creation',
+            reason: "Opening stock on product creation",
             performedById: actorId,
           },
         });
@@ -190,12 +207,16 @@ export class ProductsService {
       await logAudit(
         {
           actorId,
-          action: 'PRODUCT_CREATED',
-          entityType: 'Product',
+          action: "PRODUCT_CREATED",
+          entityType: "Product",
           entityId: created.id,
-          metadata: { name: created.name, sku: created.sku, initialQuantity: initialQty },
+          metadata: {
+            name: created.name,
+            sku: created.sku,
+            initialQuantity: initialQty,
+          },
         },
-        tx
+        tx,
       );
 
       return created;
@@ -221,11 +242,11 @@ export class ProductsService {
       reorderLevel?: number;
       description?: string;
       isActive?: boolean;
-    }
+    },
   ) {
     const product = await prisma.product.findUnique({ where: { id } });
     if (!product) {
-      throw new AppError('Product not found.', 404, 'PRODUCT_NOT_FOUND');
+      throw new AppError("Product not found.", 404, "PRODUCT_NOT_FOUND");
     }
 
     if (data.sku) {
@@ -233,18 +254,32 @@ export class ProductsService {
       if (sku !== product.sku) {
         const existing = await prisma.product.findUnique({ where: { sku } });
         if (existing) {
-          throw new AppError(`A product with SKU "${sku}" already exists.`, 409, 'SKU_EXISTS');
+          throw new AppError(
+            `A product with SKU "${sku}" already exists.`,
+            409,
+            "SKU_EXISTS",
+          );
         }
       }
     }
 
     if (data.categoryId && data.categoryId !== product.categoryId) {
-      const category = await prisma.category.findUnique({ where: { id: data.categoryId } });
+      const category = await prisma.category.findUnique({
+        where: { id: data.categoryId },
+      });
       if (!category) {
-        throw new AppError('The specified category does not exist.', 404, 'CATEGORY_NOT_FOUND');
+        throw new AppError(
+          "The specified category does not exist.",
+          404,
+          "CATEGORY_NOT_FOUND",
+        );
       }
       if (!category.isActive) {
-        throw new AppError('Cannot assign product to an inactive category.', 400, 'CATEGORY_INACTIVE');
+        throw new AppError(
+          "Cannot assign product to an inactive category.",
+          400,
+          "CATEGORY_INACTIVE",
+        );
       }
     }
 
@@ -256,17 +291,23 @@ export class ProductsService {
         ...(data.categoryId ? { categoryId: data.categoryId } : {}),
         ...(data.unit ? { unit: data.unit.trim().toLowerCase() } : {}),
         ...(data.costPrice !== undefined ? { costPrice: data.costPrice } : {}),
-        ...(data.sellingPrice !== undefined ? { sellingPrice: data.sellingPrice } : {}),
-        ...(data.reorderLevel !== undefined ? { reorderLevel: data.reorderLevel } : {}),
-        ...(data.description !== undefined ? { description: data.description.trim() || null } : {}),
+        ...(data.sellingPrice !== undefined
+          ? { sellingPrice: data.sellingPrice }
+          : {}),
+        ...(data.reorderLevel !== undefined
+          ? { reorderLevel: data.reorderLevel }
+          : {}),
+        ...(data.description !== undefined
+          ? { description: data.description.trim() || null }
+          : {}),
         ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
       },
     });
 
     await logAudit({
       actorId,
-      action: 'PRODUCT_UPDATED',
-      entityType: 'Product',
+      action: "PRODUCT_UPDATED",
+      entityType: "Product",
       entityId: id,
       metadata: data,
     });

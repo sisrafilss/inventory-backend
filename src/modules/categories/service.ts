@@ -1,7 +1,7 @@
-import { prisma } from '../../config/db.js';
-import { AppError } from '../../errors/AppError.js';
-import { logAudit } from '../../utils/audit.js';
-import { Prisma } from '@prisma/client';
+import { prisma } from "../../config/db.js";
+import { AppError } from "../../errors/AppError.js";
+import { logAudit } from "../../utils/audit.js";
+import { Prisma } from "@prisma/client";
 
 export class CategoriesService {
   static async listCategories(query: { search?: string; isActive?: boolean }) {
@@ -12,12 +12,12 @@ export class CategoriesService {
     }
 
     if (query.search && query.search.trim()) {
-      where.name = { contains: query.search.trim(), mode: 'insensitive' };
+      where.name = { contains: query.search.trim(), mode: "insensitive" };
     }
 
     const categories = await prisma.category.findMany({
       where,
-      orderBy: { name: 'asc' },
+      orderBy: { name: "asc" },
       include: {
         _count: {
           select: { products: true },
@@ -39,7 +39,7 @@ export class CategoriesService {
     });
 
     if (!category) {
-      throw new AppError('Category not found.', 404, 'CATEGORY_NOT_FOUND');
+      throw new AppError("Category not found.", 404, "CATEGORY_NOT_FOUND");
     }
 
     return category;
@@ -47,14 +47,18 @@ export class CategoriesService {
 
   static async createCategory(
     actorId: string,
-    data: { name: string; description?: string; isActive?: boolean }
+    data: { name: string; description?: string; isActive?: boolean },
   ) {
     const existing = await prisma.category.findUnique({
       where: { name: data.name.trim() },
     });
 
     if (existing) {
-      throw new AppError('A category with this name already exists.', 409, 'CATEGORY_EXISTS');
+      throw new AppError(
+        "A category with this name already exists.",
+        409,
+        "CATEGORY_EXISTS",
+      );
     }
 
     const category = await prisma.category.create({
@@ -67,8 +71,8 @@ export class CategoriesService {
 
     await logAudit({
       actorId,
-      action: 'CATEGORY_CREATED',
-      entityType: 'Category',
+      action: "CATEGORY_CREATED",
+      entityType: "Category",
       entityId: category.id,
       metadata: { name: category.name },
     });
@@ -79,11 +83,11 @@ export class CategoriesService {
   static async updateCategory(
     actorId: string,
     id: string,
-    data: { name?: string; description?: string; isActive?: boolean }
+    data: { name?: string; description?: string; isActive?: boolean },
   ) {
     const category = await prisma.category.findUnique({ where: { id } });
     if (!category) {
-      throw new AppError('Category not found.', 404, 'CATEGORY_NOT_FOUND');
+      throw new AppError("Category not found.", 404, "CATEGORY_NOT_FOUND");
     }
 
     if (data.name && data.name.trim() !== category.name) {
@@ -91,7 +95,11 @@ export class CategoriesService {
         where: { name: data.name.trim() },
       });
       if (existing) {
-        throw new AppError('A category with this name already exists.', 409, 'CATEGORY_EXISTS');
+        throw new AppError(
+          "A category with this name already exists.",
+          409,
+          "CATEGORY_EXISTS",
+        );
       }
     }
 
@@ -99,15 +107,17 @@ export class CategoriesService {
       where: { id },
       data: {
         ...(data.name ? { name: data.name.trim() } : {}),
-        ...(data.description !== undefined ? { description: data.description.trim() || null } : {}),
+        ...(data.description !== undefined
+          ? { description: data.description.trim() || null }
+          : {}),
         ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),
       },
     });
 
     await logAudit({
       actorId,
-      action: 'CATEGORY_UPDATED',
-      entityType: 'Category',
+      action: "CATEGORY_UPDATED",
+      entityType: "Category",
       entityId: id,
       metadata: data,
     });

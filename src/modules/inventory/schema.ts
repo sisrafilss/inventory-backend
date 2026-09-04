@@ -1,9 +1,9 @@
-import { z } from 'zod';
-import { StockMovementType } from '@prisma/client';
+import { z } from "zod";
+import { StockMovementType } from "@prisma/client";
 
 export const createAdjustmentSchema = z.object({
   body: z.object({
-    productId: z.string().uuid('Invalid product ID'),
+    productId: z.string().uuid("Invalid product ID"),
     type: z.enum([
       StockMovementType.RESTOCK,
       StockMovementType.DAMAGE,
@@ -12,8 +12,11 @@ export const createAdjustmentSchema = z.object({
       StockMovementType.CORRECTION,
       StockMovementType.OTHER,
     ]),
-    quantity: z.number().int().refine((val) => val !== 0, 'Quantity cannot be zero'),
-    reason: z.string().min(3, 'Reason/note must be at least 3 characters'),
+    quantity: z
+      .number()
+      .int()
+      .refine((val) => val !== 0, "Quantity cannot be zero"),
+    reason: z.string().min(3, "Reason/note must be at least 3 characters"),
   }),
 });
 

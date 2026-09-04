@@ -1,7 +1,7 @@
-import { Request, Response, NextFunction } from 'express';
-import { SalesService } from './service.js';
-import { sendSuccess } from '../../utils/apiResponse.js';
-import { SaleStatus } from '@prisma/client';
+import { Request, Response, NextFunction } from "express";
+import { SalesService } from "./service.js";
+import { sendSuccess } from "../../utils/apiResponse.js";
+import { SaleStatus } from "@prisma/client";
 
 export class SalesController {
   static async createSale(req: Request, res: Response, next: NextFunction) {
@@ -10,8 +10,8 @@ export class SalesController {
       return sendSuccess(
         res,
         sale,
-        'Sale submitted successfully. Pending manager/admin approval and cash handover.',
-        201
+        "Sale submitted successfully. Pending manager/admin approval and cash handover.",
+        201,
       );
     } catch (error) {
       next(error);
@@ -21,7 +21,9 @@ export class SalesController {
   static async listSales(req: Request, res: Response, next: NextFunction) {
     try {
       const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
-      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+      const limit = req.query.limit
+        ? parseInt(req.query.limit as string, 10)
+        : 20;
       const status = req.query.status as SaleStatus;
       const salesOfficerId = req.query.salesOfficerId as string;
       const search = req.query.search as string;
@@ -30,7 +32,7 @@ export class SalesController {
 
       const { sales, meta } = await SalesService.listSales(
         { id: req.user!.id, role: req.user!.role },
-        { page, limit, status, salesOfficerId, search, startDate, endDate }
+        { page, limit, status, salesOfficerId, search, startDate, endDate },
       );
 
       return sendSuccess(res, sales, undefined, 200, meta);
@@ -43,7 +45,7 @@ export class SalesController {
     try {
       const sale = await SalesService.getSaleById(
         { id: req.user!.id, role: req.user!.role },
-        req.params.id
+        req.params.id,
       );
       return sendSuccess(res, sale);
     } catch (error) {
@@ -54,7 +56,11 @@ export class SalesController {
   static async approveSale(req: Request, res: Response, next: NextFunction) {
     try {
       const sale = await SalesService.approveSale(req.user!.id, req.params.id);
-      return sendSuccess(res, sale, 'Sale approved and inventory deducted successfully.');
+      return sendSuccess(
+        res,
+        sale,
+        "Sale approved and inventory deducted successfully.",
+      );
     } catch (error) {
       next(error);
     }
@@ -62,8 +68,12 @@ export class SalesController {
 
   static async rejectSale(req: Request, res: Response, next: NextFunction) {
     try {
-      const sale = await SalesService.rejectSale(req.user!.id, req.params.id, req.body.reason);
-      return sendSuccess(res, sale, 'Sale rejected successfully.');
+      const sale = await SalesService.rejectSale(
+        req.user!.id,
+        req.params.id,
+        req.body.reason,
+      );
+      return sendSuccess(res, sale, "Sale rejected successfully.");
     } catch (error) {
       next(error);
     }

@@ -1,8 +1,8 @@
-import { z } from 'zod';
+import { z } from "zod";
 
 export const createCategorySchema = z.object({
   body: z.object({
-    name: z.string().min(2, 'Category name must be at least 2 characters'),
+    name: z.string().min(2, "Category name must be at least 2 characters"),
     description: z.string().optional(),
     isActive: z.boolean().optional(),
   }),
@@ -10,7 +10,7 @@ export const createCategorySchema = z.object({
 
 export const updateCategorySchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid category ID'),
+    id: z.string().uuid("Invalid category ID"),
   }),
   body: z.object({
     name: z.string().min(2).optional(),

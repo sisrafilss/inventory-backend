@@ -1,7 +1,7 @@
-import { Router } from 'express';
-import { UsersController } from './controller.js';
-import { requireAuth, requireRoles } from '../../middlewares/auth.js';
-import { validateRequest } from '../../middlewares/validateRequest.js';
+import { Router } from "express";
+import { UsersController } from "./controller.js";
+import { requireAuth, requireRoles } from "../../middlewares/auth.js";
+import { validateRequest } from "../../middlewares/validateRequest.js";
 import {
   createUserSchema,
   updateUserSchema,
@@ -10,8 +10,8 @@ import {
   updateStatusSchema,
   resetPasswordSchema,
   listUsersSchema,
-} from './schema.js';
-import { Role } from '@prisma/client';
+} from "./schema.js";
+import { Role } from "@prisma/client";
 
 const router = Router();
 
@@ -19,51 +19,40 @@ const router = Router();
 router.use(requireAuth);
 router.use(requireRoles(Role.SUPER_ADMIN, Role.ADMIN));
 
-router.get(
-  '/',
-  validateRequest(listUsersSchema),
-  UsersController.listUsers
-);
+router.get("/", validateRequest(listUsersSchema), UsersController.listUsers);
 
-router.post(
-  '/',
-  validateRequest(createUserSchema),
-  UsersController.createUser
-);
+router.post("/", validateRequest(createUserSchema), UsersController.createUser);
 
-router.get(
-  '/:id',
-  UsersController.getUserById
-);
+router.get("/:id", UsersController.getUserById);
 
 router.patch(
-  '/:id',
+  "/:id",
   validateRequest(updateUserSchema),
-  UsersController.updateUser
+  UsersController.updateUser,
 );
 
 router.post(
-  '/:id/verify',
+  "/:id/verify",
   validateRequest(verifyUserSchema),
-  UsersController.verifySalesOfficer
+  UsersController.verifySalesOfficer,
 );
 
 router.post(
-  '/:id/reject',
+  "/:id/reject",
   validateRequest(rejectUserSchema),
-  UsersController.rejectSalesOfficer
+  UsersController.rejectSalesOfficer,
 );
 
 router.patch(
-  '/:id/status',
+  "/:id/status",
   validateRequest(updateStatusSchema),
-  UsersController.updateStatus
+  UsersController.updateStatus,
 );
 
 router.post(
-  '/:id/reset-password',
+  "/:id/reset-password",
   validateRequest(resetPasswordSchema),
-  UsersController.resetPassword
+  UsersController.resetPassword,
 );
 
 export default router;

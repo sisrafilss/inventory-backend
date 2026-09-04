@@ -1,7 +1,7 @@
-import { Request, Response, NextFunction } from 'express';
-import { ReportsService } from './service.js';
-import { sendSuccess } from '../../utils/apiResponse.js';
-import { SaleStatus, StockMovementType } from '@prisma/client';
+import { Request, Response, NextFunction } from "express";
+import { ReportsService } from "./service.js";
+import { sendSuccess } from "../../utils/apiResponse.js";
+import { SaleStatus, StockMovementType } from "@prisma/client";
 
 export class ReportsController {
   static async getSalesReport(req: Request, res: Response, next: NextFunction) {
@@ -20,12 +20,23 @@ export class ReportsController {
     }
   }
 
-  static async getInventoryReport(req: Request, res: Response, next: NextFunction) {
+  static async getInventoryReport(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
     try {
       const report = await ReportsService.getInventoryReport({
         categoryId: req.query.categoryId as string,
-        stockStatus: req.query.stockStatus as 'ALL' | 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK',
-        isActive: req.query.isActive !== undefined ? req.query.isActive === 'true' : undefined,
+        stockStatus: req.query.stockStatus as
+          | "ALL"
+          | "IN_STOCK"
+          | "LOW_STOCK"
+          | "OUT_OF_STOCK",
+        isActive:
+          req.query.isActive !== undefined
+            ? req.query.isActive === "true"
+            : undefined,
       });
       return sendSuccess(res, report);
     } catch (error) {
@@ -33,7 +44,11 @@ export class ReportsController {
     }
   }
 
-  static async getStockAdjustmentsReport(req: Request, res: Response, next: NextFunction) {
+  static async getStockAdjustmentsReport(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
     try {
       const { report, meta } = await ReportsService.getStockAdjustmentsReport({
         startDate: req.query.startDate as string,
@@ -49,7 +64,11 @@ export class ReportsController {
     }
   }
 
-  static async getSalesOfficersReport(req: Request, res: Response, next: NextFunction) {
+  static async getSalesOfficersReport(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
     try {
       const report = await ReportsService.getSalesOfficersReport({
         startDate: req.query.startDate as string,
@@ -61,7 +80,11 @@ export class ReportsController {
     }
   }
 
-  static async getCashHandoverReport(req: Request, res: Response, next: NextFunction) {
+  static async getCashHandoverReport(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
     try {
       const { report, meta } = await ReportsService.getCashHandoverReport({
         startDate: req.query.startDate as string,

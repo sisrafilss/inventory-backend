@@ -1,13 +1,13 @@
-import { Request, Response, NextFunction } from 'express';
-import { AppError } from '../errors/AppError.js';
-import { config } from '../config/env.js';
+import { Request, Response, NextFunction } from "express";
+import { AppError } from "../errors/AppError.js";
+import { config } from "../config/env.js";
 
 export const errorHandler = (
   err: Error,
   req: Request,
   res: Response,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  next: NextFunction
+  next: NextFunction,
 ) => {
   if (err instanceof AppError) {
     return res.status(err.statusCode).json({
@@ -18,12 +18,15 @@ export const errorHandler = (
     });
   }
 
-  console.error('Unhandled server error:', err);
+  console.error("Unhandled server error:", err);
 
-  const message = config.nodeEnv === 'production' ? 'Internal server error occurred.' : err.message;
+  const message =
+    config.nodeEnv === "production"
+      ? "Internal server error occurred."
+      : err.message;
   return res.status(500).json({
     success: false,
     message,
-    code: 'INTERNAL_SERVER_ERROR',
+    code: "INTERNAL_SERVER_ERROR",
   });
 };

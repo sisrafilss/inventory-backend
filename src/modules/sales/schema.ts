@@ -1,5 +1,5 @@
-import { z } from 'zod';
-import { SaleStatus } from '@prisma/client';
+import { z } from "zod";
+import { SaleStatus } from "@prisma/client";
 
 export const createSaleSchema = z.object({
   body: z.object({
@@ -9,20 +9,20 @@ export const createSaleSchema = z.object({
     items: z
       .array(
         z.object({
-          productId: z.string().uuid('Invalid product ID'),
-          quantity: z.number().int().min(1, 'Quantity must be at least 1'),
-        })
+          productId: z.string().uuid("Invalid product ID"),
+          quantity: z.number().int().min(1, "Quantity must be at least 1"),
+        }),
       )
-      .min(1, 'Sale must include at least one item'),
+      .min(1, "Sale must include at least one item"),
   }),
 });
 
 export const rejectSaleSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid sale ID'),
+    id: z.string().uuid("Invalid sale ID"),
   }),
   body: z.object({
-    reason: z.string().min(3, 'Rejection reason must be at least 3 characters'),
+    reason: z.string().min(3, "Rejection reason must be at least 3 characters"),
   }),
 });
 

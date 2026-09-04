@@ -1,5 +1,5 @@
-import { prisma } from '../config/db.js';
-import { Prisma } from '@prisma/client';
+import { prisma } from "../config/db.js";
+import { Prisma } from "@prisma/client";
 
 export interface AuditEventParams {
   actorId?: string | null;
@@ -9,7 +9,10 @@ export interface AuditEventParams {
   metadata?: Prisma.InputJsonValue;
 }
 
-export const logAudit = async (params: AuditEventParams, tx?: Prisma.TransactionClient) => {
+export const logAudit = async (
+  params: AuditEventParams,
+  tx?: Prisma.TransactionClient,
+) => {
   try {
     const client = tx || prisma;
     await client.auditLog.create({
@@ -22,6 +25,6 @@ export const logAudit = async (params: AuditEventParams, tx?: Prisma.Transaction
       },
     });
   } catch (err) {
-    console.error('Failed to write audit log:', err);
+    console.error("Failed to write audit log:", err);
   }
 };

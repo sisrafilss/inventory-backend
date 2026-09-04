@@ -1,5 +1,5 @@
-import { prisma } from '../../config/db.js';
-import { SaleStatus, StockMovementType, Role, Prisma } from '@prisma/client';
+import { prisma } from "../../config/db.js";
+import { SaleStatus, StockMovementType, Role, Prisma } from "@prisma/client";
 
 export class ReportsService {
   static async getSalesReport(query: {
@@ -42,7 +42,7 @@ export class ReportsService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
           salesOfficer: { select: { id: true, name: true, email: true } },
           approvedBy: { select: { id: true, name: true, email: true } },
@@ -81,7 +81,7 @@ export class ReportsService {
 
   static async getInventoryReport(query: {
     categoryId?: string;
-    stockStatus?: 'ALL' | 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
+    stockStatus?: "ALL" | "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK";
     isActive?: boolean;
   }) {
     const where: Prisma.ProductWhereInput = {};
@@ -96,7 +96,7 @@ export class ReportsService {
 
     const products = await prisma.product.findMany({
       where,
-      orderBy: { name: 'asc' },
+      orderBy: { name: "asc" },
       include: {
         category: { select: { id: true, name: true } },
       },
@@ -107,11 +107,11 @@ export class ReportsService {
       const cost = Number(p.costPrice);
       const selling = Number(p.sellingPrice);
 
-      let stockStatus: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' = 'IN_STOCK';
+      let stockStatus: "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK" = "IN_STOCK";
       if (qty <= 0) {
-        stockStatus = 'OUT_OF_STOCK';
+        stockStatus = "OUT_OF_STOCK";
       } else if (qty <= p.reorderLevel) {
-        stockStatus = 'LOW_STOCK';
+        stockStatus = "LOW_STOCK";
       }
 
       return {
@@ -131,9 +131,10 @@ export class ReportsService {
       };
     });
 
-    const filtered = query.stockStatus && query.stockStatus !== 'ALL'
-      ? report.filter((r) => r.stockStatus === query.stockStatus)
-      : report;
+    const filtered =
+      query.stockStatus && query.stockStatus !== "ALL"
+        ? report.filter((r) => r.stockStatus === query.stockStatus)
+        : report;
 
     return filtered;
   }
@@ -178,7 +179,7 @@ export class ReportsService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
           product: { select: { name: true, sku: true, unit: true } },
           performedBy: { select: { name: true, email: true, role: true } },
@@ -213,7 +214,10 @@ export class ReportsService {
     };
   }
 
-  static async getSalesOfficersReport(query: { startDate?: string; endDate?: string }) {
+  static async getSalesOfficersReport(query: {
+    startDate?: string;
+    endDate?: string;
+  }) {
     const salesOfficers = await prisma.user.findMany({
       where: { role: Role.SALES_OFFICER },
       select: {
@@ -239,28 +243,32 @@ export class ReportsService {
 
     const report = await Promise.all(
       salesOfficers.map(async (officer) => {
-        const [totalSubmitted, approvedSales, rejectedSales] = await Promise.all([
-          prisma.sale.count({
-            where: { ...whereSale, salesOfficerId: officer.id },
-          }),
-          prisma.sale.findMany({
-            where: {
-              ...whereSale,
-              salesOfficerId: officer.id,
-              status: SaleStatus.APPROVED,
-            },
-            select: { totalAmount: true },
-          }),
-          prisma.sale.count({
-            where: {
-              ...whereSale,
-              salesOfficerId: officer.id,
-              status: SaleStatus.REJECTED,
-            },
-          }),
-        ]);
+        const [totalSubmitted, approvedSales, rejectedSales] =
+          await Promise.all([
+            prisma.sale.count({
+              where: { ...whereSale, salesOfficerId: officer.id },
+            }),
+            prisma.sale.findMany({
+              where: {
+                ...whereSale,
+                salesOfficerId: officer.id,
+                status: SaleStatus.APPROVED,
+              },
+              select: { totalAmount: true },
+            }),
+            prisma.sale.count({
+              where: {
+                ...whereSale,
+                salesOfficerId: officer.id,
+                status: SaleStatus.REJECTED,
+              },
+            }),
+          ]);
 
-        const totalApprovedAmount = approvedSales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
+        const totalApprovedAmount = approvedSales.reduce(
+          (sum, s) => sum + Number(s.totalAmount),
+          0,
+        );
 
         return {
           id: officer.id,
@@ -273,7 +281,7 @@ export class ReportsService {
           pendingCount: totalSubmitted - approvedSales.length - rejectedSales,
           approvedSalesAmount: totalApprovedAmount.toFixed(2),
         };
-      })
+      }),
     );
 
     return report;
@@ -311,7 +319,7 @@ export class ReportsService {
         where,
         skip,
         take: limit,
-        orderBy: { approvedAt: 'desc' },
+        orderBy: { approvedAt: "desc" },
         include: {
           salesOfficer: { select: { id: true, name: true, email: true } },
           approvedBy: { select: { id: true, name: true, email: true } },
@@ -325,9 +333,9 @@ export class ReportsService {
       amount: Number(s.totalAmount),
       salesOfficer: s.salesOfficer.name,
       salesOfficerEmail: s.salesOfficer.email,
-      confirmedBy: s.approvedBy?.name || 'Unknown',
+      confirmedBy: s.approvedBy?.name || "Unknown",
       confirmedAt: s.approvedAt,
-      customerName: s.customerName || 'N/A',
+      customerName: s.customerName || "N/A",
     }));
 
     return {

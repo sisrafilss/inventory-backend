@@ -1,5 +1,5 @@
-import { prisma } from '../../config/db.js';
-import { Prisma } from '@prisma/client';
+import { prisma } from "../../config/db.js";
+import { Prisma } from "@prisma/client";
 
 export class AuditService {
   static async listAuditLogs(query: {
@@ -47,7 +47,7 @@ export class AuditService {
         where,
         skip,
         take: limit,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
           actor: {
             select: { id: true, name: true, email: true, role: true },

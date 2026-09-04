@@ -1,6 +1,6 @@
-import { Request, Response, NextFunction } from 'express';
-import { DashboardService } from './service.js';
-import { sendSuccess } from '../../utils/apiResponse.js';
+import { Request, Response, NextFunction } from "express";
+import { DashboardService } from "./service.js";
+import { sendSuccess } from "../../utils/apiResponse.js";
 
 export class DashboardController {
   static async getSummary(req: Request, res: Response, next: NextFunction) {

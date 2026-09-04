@@ -1,12 +1,16 @@
-import { prisma } from '../../config/db.js';
-import { Role, SaleStatus, UserStatus } from '@prisma/client';
+import { prisma } from "../../config/db.js";
+import { Role, SaleStatus, UserStatus } from "@prisma/client";
 
 export class DashboardService {
   static async getSummary(user: { id: string; role: Role }) {
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
 
-    const monthStart = new Date(todayStart.getFullYear(), todayStart.getMonth(), 1);
+    const monthStart = new Date(
+      todayStart.getFullYear(),
+      todayStart.getMonth(),
+      1,
+    );
 
     if (user.role === Role.SALES_OFFICER) {
       // Sales Officer Dashboard
@@ -38,7 +42,7 @@ export class DashboardService {
         prisma.sale.findMany({
           where: { salesOfficerId: user.id },
           take: 5,
-          orderBy: { createdAt: 'desc' },
+          orderBy: { createdAt: "desc" },
           include: {
             items: {
               include: {
@@ -49,8 +53,14 @@ export class DashboardService {
         }),
       ]);
 
-      const todaySalesAmount = myTodayApprovedSales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
-      const monthSalesAmount = myMonthApprovedSales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
+      const todaySalesAmount = myTodayApprovedSales.reduce(
+        (sum, s) => sum + Number(s.totalAmount),
+        0,
+      );
+      const monthSalesAmount = myMonthApprovedSales.reduce(
+        (sum, s) => sum + Number(s.totalAmount),
+        0,
+      );
 
       return {
         role: user.role,
@@ -89,7 +99,12 @@ export class DashboardService {
       prisma.category.count({ where: { isActive: true } }),
       prisma.product.findMany({
         where: { isActive: true },
-        select: { quantity: true, costPrice: true, sellingPrice: true, reorderLevel: true },
+        select: {
+          quantity: true,
+          costPrice: true,
+          sellingPrice: true,
+          reorderLevel: true,
+        },
       }),
       prisma.sale.count({ where: { status: SaleStatus.PENDING } }),
       user.role === Role.MANAGER
@@ -113,14 +128,14 @@ export class DashboardService {
       }),
       prisma.sale.findMany({
         take: 5,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
           salesOfficer: { select: { id: true, name: true, email: true } },
         },
       }),
       prisma.stockMovement.findMany({
         take: 5,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
           product: { select: { id: true, name: true, sku: true } },
           performedBy: { select: { id: true, name: true, email: true } },
@@ -129,7 +144,7 @@ export class DashboardService {
       prisma.sale.findMany({
         where: { status: SaleStatus.PENDING },
         take: 5,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { createdAt: "desc" },
         include: {
           salesOfficer: { select: { id: true, name: true, email: true } },
           items: {
@@ -158,8 +173,14 @@ export class DashboardService {
       }
     }
 
-    const todaySalesAmount = todayApprovedSales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
-    const monthSalesAmount = monthApprovedSales.reduce((sum, s) => sum + Number(s.totalAmount), 0);
+    const todaySalesAmount = todayApprovedSales.reduce(
+      (sum, s) => sum + Number(s.totalAmount),
+      0,
+    );
+    const monthSalesAmount = monthApprovedSales.reduce(
+      (sum, s) => sum + Number(s.totalAmount),
+      0,
+    );
 
     return {
       role: user.role,
