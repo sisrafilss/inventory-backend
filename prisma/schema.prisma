@@ -1,0 +1,177 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+  SALES_OFFICER
+}
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  REJECTED
+  INACTIVE
+}
+
+enum SaleStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+enum StockMovementType {
+  RESTOCK
+  DAMAGE
+  LOSS
+  RETURN
+  CORRECTION
+  OPENING_STOCK
+  SALE_DEDUCTION
+  OTHER
+}
+
+model User {
+  id                 String     @id @default(uuid())
+  name               String
+  email              String     @unique
+  phone              String?
+  address            String?
+  passwordHash       String
+  role               Role       @default(SALES_OFFICER)
+  status             UserStatus @default(PENDING)
+  mustChangePassword Boolean    @default(false)
+  lastLoginAt        DateTime?
+  createdAt          DateTime   @default(now())
+  updatedAt          DateTime   @updatedAt
+
+  salesOfficerSales Sale[]          @relation("SalesOfficerSales")
+  approvedSales     Sale[]          @relation("ApprovedBySales")
+  rejectedSales     Sale[]          @relation("RejectedBySales")
+  stockMovements    StockMovement[]
+  auditLogs         AuditLog[]
+
+  @@index([email])
+  @@index([role])
+  @@index([status])
+}
+
+model Category {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+
+  @@index([isActive])
+}
+
+model Product {
+  id           String   @id @default(uuid())
+  name         String
+  sku          String   @unique
+  categoryId   String
+  category     Category @relation(fields: [categoryId], references: [id])
+  unit         String   @default("piece")
+  costPrice    Decimal  @default(0.00) @db.Decimal(12, 2)
+  sellingPrice Decimal  @default(0.00) @db.Decimal(12, 2)
+  quantity     Int      @default(0)
+  reorderLevel Int      @default(10)
+  description  String?
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  saleItems      SaleItem[]
+  stockMovements StockMovement[]
+
+  @@index([sku])
+  @@index([categoryId])
+  @@index([isActive])
+}
+
+model Sale {
+  id              String     @id @default(uuid())
+  referenceNumber String     @unique
+  salesOfficerId  String
+  salesOfficer    User       @relation("SalesOfficerSales", fields: [salesOfficerId], references: [id])
+  status          SaleStatus @default(PENDING)
+  totalAmount     Decimal    @default(0.00) @db.Decimal(12, 2)
+  customerName    String?
+  customerPhone   String?
+  note            String?
+  approvedById    String?
+  approvedBy      User?      @relation("ApprovedBySales", fields: [approvedById], references: [id])
+  approvedAt      DateTime?
+  rejectedById    String?
+  rejectedBy      User?      @relation("RejectedBySales", fields: [rejectedById], references: [id])
+  rejectedAt      DateTime?
+  rejectionReason String?
+  createdAt       DateTime   @default(now())
+  updatedAt       DateTime   @updatedAt
+
+  items SaleItem[]
+
+  @@index([status])
+  @@index([salesOfficerId])
+  @@index([createdAt])
+}
+
+model SaleItem {
+  id        String  @id @default(uuid())
+  saleId    String
+  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+  quantity  Int
+  unitPrice Decimal @db.Decimal(12, 2)
+  lineTotal Decimal @db.Decimal(12, 2)
+
+  @@index([saleId])
+  @@index([productId])
+}
+
+model StockMovement {
+  id             String            @id @default(uuid())
+  productId      String
+  product        Product           @relation(fields: [productId], references: [id])
+  type           StockMovementType
+  quantityBefore Int
+  quantityChange Int
+  quantityAfter  Int
+  referenceType  String?
+  referenceId    String?
+  reason         String?
+  performedById  String
+  performedBy    User              @relation(fields: [performedById], references: [id])
+  createdAt      DateTime          @default(now())
+
+  @@index([productId])
+  @@index([performedById])
+  @@index([createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String?
+  actor      User?    @relation(fields: [actorId], references: [id])
+  action     String
+  entityType String
+  entityId   String?
+  metadata   Json?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId])
+  @@index([createdAt])
+  @@index([entityType, entityId])
+}
