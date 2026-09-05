@@ -57,10 +57,58 @@ model User {
   rejectedSales  Sale[]          @relation("RejectedBySales")
   stockMovements StockMovement[]
   auditLogs      AuditLog[]
+  purchases      Purchase[]      @relation("CreatedPurchases")
+  expenses       Expense[]       @relation("CreatedExpenses")
+  payments       PartyPayment[]  @relation("CreatedPayments")
 
   @@index([email])
   @@index([role])
   @@index([status])
+}
+
+model Company {
+  id          String    @id @default(uuid())
+  name        String    @unique
+  code        String?   @unique
+  description String?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+
+  @@index([isActive])
+}
+
+model Warehouse {
+  id        String   @id @default(uuid())
+  name      String   @unique
+  code      String?  @unique
+  address   String?
+  isDefault Boolean  @default(false)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  stocks        WarehouseStock[]
+  purchaseItems PurchaseItem[]
+  saleItems     SaleItem[]
+  sales         Sale[]
+
+  @@index([isActive])
+}
+
+model WarehouseStock {
+  id          String    @id @default(uuid())
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  quantity    Int       @default(0)
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([warehouseId, productId])
+  @@index([warehouseId])
+  @@index([productId])
 }
 
 model Category {
@@ -76,27 +124,119 @@ model Category {
 }
 
 model Product {
-  id           String   @id @default(uuid())
+  id           String    @id @default(uuid())
   name         String
-  sku          String   @unique
+  sku          String    @unique
+  barcode      String?   @unique
   categoryId   String
-  category     Category @relation(fields: [categoryId], references: [id])
-  unit         String   @default("piece")
-  costPrice    Decimal  @default(0.00) @db.Decimal(12, 2)
-  sellingPrice Decimal  @default(0.00) @db.Decimal(12, 2)
-  quantity     Int      @default(0)
-  reorderLevel Int      @default(10)
+  category     Category  @relation(fields: [categoryId], references: [id])
+  companyId    String?
+  company      Company?  @relation(fields: [companyId], references: [id])
+  unit         String    @default("piece")
+  dpRate       Decimal   @default(0.00) @db.Decimal(12, 2)
+  costPrice    Decimal   @default(0.00) @db.Decimal(12, 2)
+  sellingPrice Decimal   @default(0.00) @db.Decimal(12, 2)
+  quantity     Int       @default(0)
+  reorderLevel Int       @default(10)
   description  String?
-  isActive     Boolean  @default(true)
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  isActive     Boolean   @default(true)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  saleItems      SaleItem[]
-  stockMovements StockMovement[]
+  saleItems       SaleItem[]
+  purchaseItems   PurchaseItem[]
+  stockMovements  StockMovement[]
+  warehouseStocks WarehouseStock[]
 
   @@index([sku])
+  @@index([barcode])
   @@index([categoryId])
+  @@index([companyId])
   @@index([isActive])
+}
+
+model Supplier {
+  id          String   @id @default(uuid())
+  name        String
+  companyName String?
+  phone       String
+  email       String?
+  address     String?
+  openingDue  Decimal  @default(0.00) @db.Decimal(12, 2)
+  currentDue  Decimal  @default(0.00) @db.Decimal(12, 2)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  purchases Purchase[]
+  payments  PartyPayment[]
+
+  @@index([name])
+  @@index([phone])
+  @@index([isActive])
+}
+
+model Customer {
+  id         String   @id @default(uuid())
+  name       String
+  phone      String
+  email      String?
+  address    String?
+  openingDue Decimal  @default(0.00) @db.Decimal(12, 2)
+  currentDue Decimal  @default(0.00) @db.Decimal(12, 2)
+  isActive   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  sales    Sale[]
+  payments PartyPayment[]
+
+  @@index([name])
+  @@index([phone])
+  @@index([isActive])
+}
+
+model Purchase {
+  id            String   @id @default(uuid())
+  invoiceNumber String   @unique
+  supplierId    String?
+  supplier      Supplier? @relation(fields: [supplierId], references: [id])
+  supplierName  String?
+  paymentType   String   @default("CASH") // CASH, SUPPLIER (Credit)
+  totalAmount   Decimal  @default(0.00) @db.Decimal(12, 2)
+  paidAmount    Decimal  @default(0.00) @db.Decimal(12, 2)
+  dueAmount     Decimal  @default(0.00) @db.Decimal(12, 2)
+  note          String?
+  createdById   String
+  createdBy     User     @relation("CreatedPurchases", fields: [createdById], references: [id])
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  items PurchaseItem[]
+
+  @@index([invoiceNumber])
+  @@index([supplierId])
+  @@index([createdById])
+  @@index([createdAt])
+}
+
+model PurchaseItem {
+  id                String     @id @default(uuid())
+  purchaseId        String
+  purchase          Purchase   @relation(fields: [purchaseId], references: [id], onDelete: Cascade)
+  productId         String
+  product           Product    @relation(fields: [productId], references: [id])
+  warehouseId       String?
+  warehouse         Warehouse? @relation(fields: [warehouseId], references: [id])
+  quantity          Int
+  dpRate            Decimal    @default(0.00) @db.Decimal(12, 2)
+  commissionPercent Decimal    @default(0.00) @db.Decimal(5, 2)
+  purchaseRate      Decimal    @default(0.00) @db.Decimal(12, 2)
+  lineTotal         Decimal    @default(0.00) @db.Decimal(12, 2)
+
+  @@index([purchaseId])
+  @@index([productId])
+  @@index([warehouseId])
 }
 
 model Sale {
@@ -104,11 +244,18 @@ model Sale {
   referenceNumber String     @unique
   createdById     String
   createdBy       User       @relation("CreatedSales", fields: [createdById], references: [id])
+  customerId      String?
+  customer        Customer?  @relation(fields: [customerId], references: [id])
   status          SaleStatus @default(PENDING)
+  paymentType     String     @default("CASH") // CASH, CREDIT
   totalAmount     Decimal    @default(0.00) @db.Decimal(12, 2)
+  paidAmount      Decimal    @default(0.00) @db.Decimal(12, 2)
+  dueAmount       Decimal    @default(0.00) @db.Decimal(12, 2)
   customerName    String?
   customerPhone   String?
   note            String?
+  warehouseId     String?
+  warehouse       Warehouse? @relation(fields: [warehouseId], references: [id])
   approvedById    String?
   approvedBy      User?      @relation("ApprovedBySales", fields: [approvedById], references: [id])
   approvedAt      DateTime?
@@ -123,21 +270,74 @@ model Sale {
 
   @@index([status])
   @@index([createdById])
+  @@index([customerId])
   @@index([createdAt])
 }
 
 model SaleItem {
-  id        String  @id @default(uuid())
-  saleId    String
-  sale      Sale    @relation(fields: [saleId], references: [id], onDelete: Cascade)
-  productId String
-  product   Product @relation(fields: [productId], references: [id])
-  quantity  Int
-  unitPrice Decimal @db.Decimal(12, 2)
-  lineTotal Decimal @db.Decimal(12, 2)
+  id           String     @id @default(uuid())
+  saleId       String
+  sale         Sale       @relation(fields: [saleId], references: [id], onDelete: Cascade)
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id])
+  warehouseId  String?
+  warehouse    Warehouse? @relation(fields: [warehouseId], references: [id])
+  quantity     Int
+  purchaseCost Decimal    @default(0.00) @db.Decimal(12, 2)
+  unitPrice    Decimal    @db.Decimal(12, 2)
+  lineTotal    Decimal    @db.Decimal(12, 2)
 
   @@index([saleId])
   @@index([productId])
+  @@index([warehouseId])
+}
+
+model Expense {
+  id          String   @id @default(uuid())
+  title       String
+  category    String   @default("OTHER")
+  amount      Decimal  @db.Decimal(12, 2)
+  date        DateTime @default(now())
+  note        String?
+  createdById String
+  createdBy   User     @relation("CreatedExpenses", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([category])
+  @@index([date])
+  @@index([createdById])
+}
+
+model PartyPayment {
+  id            String    @id @default(uuid())
+  receiptNumber String    @unique
+  type          String    // CUSTOMER_COLLECTION, SUPPLIER_PAYMENT
+  customerId    String?
+  customer      Customer? @relation(fields: [customerId], references: [id])
+  supplierId    String?
+  supplier      Supplier? @relation(fields: [supplierId], references: [id])
+  amount        Decimal   @db.Decimal(12, 2)
+  paymentMethod String    @default("CASH") // CASH, BANK, BKASH, NAGAD, CHEQUE
+  referenceNote String?
+  createdById   String
+  createdBy     User      @relation("CreatedPayments", fields: [createdById], references: [id])
+  createdAt     DateTime  @default(now())
+
+  @@index([type])
+  @@index([customerId])
+  @@index([supplierId])
+  @@index([createdAt])
+}
+
+model StoreSetting {
+  id             String   @id @default(uuid())
+  storeName      String   @default("M.R. Enterprise")
+  proprietor     String   @default("Proprietor")
+  phone          String?
+  address        String?
+  memoFooterNote String?  @default("Thank you for shopping with us!")
+  updatedAt      DateTime @updatedAt
 }
 
 model StockMovement {

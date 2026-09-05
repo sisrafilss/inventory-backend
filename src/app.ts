@@ -15,6 +15,13 @@ import salesRouter from "./modules/sales/routes.js";
 import dashboardRouter from "./modules/dashboard/routes.js";
 import reportsRouter from "./modules/reports/routes.js";
 import auditRouter from "./modules/audit/routes.js";
+import companiesRouter from "./modules/companies/routes.js";
+import warehousesRouter from "./modules/warehouses/routes.js";
+import partiesRouter from "./modules/parties/routes.js";
+import purchasesRouter from "./modules/purchases/routes.js";
+import expensesRouter from "./modules/expenses/routes.js";
+import paymentsRouter from "./modules/payments/routes.js";
+import settingsRouter from "./modules/settings/routes.js";
 
 export const app = express();
 
@@ -50,6 +57,13 @@ app.use("/api/sales", salesRouter);
 app.use("/api/dashboard", dashboardRouter);
 app.use("/api/reports", reportsRouter);
 app.use("/api/audit-logs", auditRouter);
+app.use("/api/companies", companiesRouter);
+app.use("/api/warehouses", warehousesRouter);
+app.use("/api/parties", partiesRouter);
+app.use("/api/purchases", purchasesRouter);
+app.use("/api/expenses", expensesRouter);
+app.use("/api/payments", paymentsRouter);
+app.use("/api/settings", settingsRouter);
 
 // 404 handler
 app.use("*", (req, res, next) => {

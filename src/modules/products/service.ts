@@ -22,6 +22,10 @@ export class ProductsService {
       where.categoryId = query.categoryId;
     }
 
+    if ((query as any).companyId) {
+      where.companyId = (query as any).companyId;
+    }
+
     if (query.isActive !== undefined) {
       where.isActive = query.isActive;
     }
@@ -31,6 +35,7 @@ export class ProductsService {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
         { sku: { contains: search, mode: "insensitive" } },
+        { barcode: { contains: search, mode: "insensitive" } },
       ];
     }
 
@@ -49,6 +54,16 @@ export class ProductsService {
           category: {
             select: { id: true, name: true },
           },
+          company: {
+            select: { id: true, name: true, code: true },
+          },
+          warehouseStocks: {
+            include: {
+              warehouse: {
+                select: { id: true, name: true },
+              },
+            },
+          },
         },
       }),
     ]);
@@ -65,6 +80,7 @@ export class ProductsService {
       return {
         ...p,
         costPrice: Number(p.costPrice),
+        dpRate: Number(p.dpRate),
         sellingPrice: Number(p.sellingPrice),
         stockStatus,
       };
@@ -99,6 +115,16 @@ export class ProductsService {
         category: {
           select: { id: true, name: true, isActive: true },
         },
+        company: {
+          select: { id: true, name: true, code: true, isActive: true },
+        },
+        warehouseStocks: {
+          include: {
+            warehouse: {
+              select: { id: true, name: true, isDefault: true },
+            },
+          },
+        },
       },
     });
 
@@ -116,6 +142,7 @@ export class ProductsService {
     return {
       ...product,
       costPrice: Number(product.costPrice),
+      dpRate: Number(product.dpRate),
       sellingPrice: Number(product.sellingPrice),
       stockStatus,
     };
@@ -126,8 +153,11 @@ export class ProductsService {
     data: {
       name: string;
       sku: string;
+      barcode?: string | null;
       categoryId: string;
+      companyId?: string | null;
       unit: string;
+      dpRate?: number;
       costPrice: number;
       sellingPrice: number;
       quantity?: number;
@@ -150,6 +180,19 @@ export class ProductsService {
       );
     }
 
+    if (data.barcode && data.barcode.trim()) {
+      const existingBarcode = await prisma.product.findUnique({
+        where: { barcode: data.barcode.trim() },
+      });
+      if (existingBarcode) {
+        throw new AppError(
+          `A product with Barcode "${data.barcode.trim()}" already exists.`,
+          409,
+          "BARCODE_EXISTS",
+        );
+      }
+    }
+
     const category = await prisma.category.findUnique({
       where: { id: data.categoryId },
     });
@@ -170,16 +213,32 @@ export class ProductsService {
       );
     }
 
+    if (data.companyId) {
+      const company = await prisma.company.findUnique({
+        where: { id: data.companyId },
+      });
+      if (!company) {
+        throw new AppError("The specified company does not exist.", 404, "COMPANY_NOT_FOUND");
+      }
+    }
+
     const initialQty = data.quantity || 0;
 
-    // Use transaction to create product and optional initial stock movement
+    // Use transaction to create product, initial warehouse stock, and stock movement
     const product = await prisma.$transaction(async (tx) => {
+      const defaultWarehouse = await tx.warehouse.findFirst({
+        where: { isDefault: true, isActive: true },
+      }) || await tx.warehouse.findFirst({ where: { isActive: true } });
+
       const created = await tx.product.create({
         data: {
           name: data.name.trim(),
           sku,
+          barcode: data.barcode && data.barcode.trim() ? data.barcode.trim() : null,
           categoryId: data.categoryId,
+          companyId: data.companyId || null,
           unit: data.unit.trim().toLowerCase(),
+          dpRate: data.dpRate || 0,
           costPrice: data.costPrice,
           sellingPrice: data.sellingPrice,
           quantity: initialQty,
@@ -191,6 +250,16 @@ export class ProductsService {
       });
 
       if (initialQty > 0) {
+        if (defaultWarehouse) {
+          await tx.warehouseStock.create({
+            data: {
+              warehouseId: defaultWarehouse.id,
+              productId: created.id,
+              quantity: initialQty,
+            },
+          });
+        }
+
         await tx.stockMovement.create({
           data: {
             productId: created.id,
@@ -213,6 +282,8 @@ export class ProductsService {
           metadata: {
             name: created.name,
             sku: created.sku,
+            barcode: created.barcode,
+            companyId: created.companyId,
             initialQuantity: initialQty,
           },
         },
@@ -225,6 +296,7 @@ export class ProductsService {
     return {
       ...product,
       costPrice: Number(product.costPrice),
+      dpRate: Number(product.dpRate),
       sellingPrice: Number(product.sellingPrice),
     };
   }
@@ -235,8 +307,11 @@ export class ProductsService {
     data: {
       name?: string;
       sku?: string;
+      barcode?: string | null;
       categoryId?: string;
+      companyId?: string | null;
       unit?: string;
+      dpRate?: number;
       costPrice?: number;
       sellingPrice?: number;
       reorderLevel?: number;
@@ -263,6 +338,19 @@ export class ProductsService {
       }
     }
 
+    if (data.barcode && data.barcode.trim() !== product.barcode) {
+      const existingBarcode = await prisma.product.findUnique({
+        where: { barcode: data.barcode.trim() },
+      });
+      if (existingBarcode) {
+        throw new AppError(
+          `A product with Barcode "${data.barcode.trim()}" already exists.`,
+          409,
+          "BARCODE_EXISTS",
+        );
+      }
+    }
+
     if (data.categoryId && data.categoryId !== product.categoryId) {
       const category = await prisma.category.findUnique({
         where: { id: data.categoryId },
@@ -283,13 +371,25 @@ export class ProductsService {
       }
     }
 
+    if (data.companyId && data.companyId !== product.companyId) {
+      const company = await prisma.company.findUnique({
+        where: { id: data.companyId },
+      });
+      if (!company) {
+        throw new AppError("The specified company does not exist.", 404, "COMPANY_NOT_FOUND");
+      }
+    }
+
     const updated = await prisma.product.update({
       where: { id },
       data: {
         ...(data.name ? { name: data.name.trim() } : {}),
         ...(data.sku ? { sku: data.sku.trim().toUpperCase() } : {}),
+        ...(data.barcode !== undefined ? { barcode: data.barcode ? data.barcode.trim() : null } : {}),
         ...(data.categoryId ? { categoryId: data.categoryId } : {}),
+        ...(data.companyId !== undefined ? { companyId: data.companyId || null } : {}),
         ...(data.unit ? { unit: data.unit.trim().toLowerCase() } : {}),
+        ...(data.dpRate !== undefined ? { dpRate: data.dpRate } : {}),
         ...(data.costPrice !== undefined ? { costPrice: data.costPrice } : {}),
         ...(data.sellingPrice !== undefined
           ? { sellingPrice: data.sellingPrice }
@@ -315,6 +415,7 @@ export class ProductsService {
     return {
       ...updated,
       costPrice: Number(updated.costPrice),
+      dpRate: Number(updated.dpRate),
       sellingPrice: Number(updated.sellingPrice),
     };
   }
