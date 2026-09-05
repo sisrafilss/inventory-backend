@@ -190,10 +190,8 @@ describe("Inventory Management System — Acceptance Scenarios (Super Admin, Adm
     });
   });
 
-  describe("Scenario C: Sales Creation & Transaction-Safe Approval", () => {
-    let createdSaleId: string;
-
-    it("should allow Manager to create a sale in PENDING state without reducing stock", async () => {
+  describe("Scenario C: Sales Creation & Immediate Stock Deduction", () => {
+    it("should allow Manager to create a sale, immediately deducting stock and setting status to COMPLETED", async () => {
       const res = await request(app)
         .post("/api/sales")
         .set("Authorization", `Bearer ${managerToken}`)
@@ -205,82 +203,34 @@ describe("Inventory Management System — Acceptance Scenarios (Super Admin, Adm
         });
 
       expect(res.status).toBe(201);
-      expect(res.body.data.status).toBe("PENDING");
+      expect(res.body.data.status).toBe("COMPLETED");
       expect(res.body.data.totalAmount).toBe(500.0); // 5 * 100.0
       expect(res.body.data.createdById).toBeDefined();
       expect(res.body.data.createdBy).toBeDefined();
-      createdSaleId = res.body.data.id;
 
-      // Verify product stock is still 130
+      // Verify product stock is immediately deducted from 130 to 125!
       const prodRes = await request(app)
         .get(`/api/products/${testProductId}`)
         .set("Authorization", `Bearer ${managerToken}`);
-      expect(prodRes.body.data.quantity).toBe(130);
-    });
-
-    it("should allow Admin to approve sale, confirming cash and deducting stock atomically", async () => {
-      const res = await request(app)
-        .post(`/api/sales/${createdSaleId}/approve`)
-        .set("Authorization", `Bearer ${adminToken}`);
-
-      expect(res.status).toBe(200);
-      expect(res.body.data.status).toBe("APPROVED");
-      expect(res.body.data.approvedBy).toBeDefined();
-
-      // Verify product stock is now exactly 125 (130 - 5)!
-      const prodRes = await request(app)
-        .get(`/api/products/${testProductId}`)
-        .set("Authorization", `Bearer ${adminToken}`);
       expect(prodRes.body.data.quantity).toBe(125);
     });
 
-    it("should reject duplicate approval cleanly (Prevent Double Approval)", async () => {
+    it("should reject sale creation when requested quantity exceeds available stock", async () => {
       const res = await request(app)
-        .post(`/api/sales/${createdSaleId}/approve`)
-        .set("Authorization", `Bearer ${adminToken}`);
-
-      expect(res.status).toBe(409);
-      expect(res.body.code).toBe("SALE_NOT_PENDING");
-
-      // Verify product stock is still 125 and NOT deducted again!
-      const prodRes = await request(app)
-        .get(`/api/products/${testProductId}`)
-        .set("Authorization", `Bearer ${adminToken}`);
-      expect(prodRes.body.data.quantity).toBe(125);
-    });
-  });
-
-  describe("Scenario D: Sale Rejection Workflow", () => {
-    let rejectedSaleId: string;
-
-    it("should allow Admin to reject a pending sale with reason, leaving stock intact", async () => {
-      // 1. Manager creates a sale for 2 units
-      const createRes = await request(app)
         .post("/api/sales")
         .set("Authorization", `Bearer ${managerToken}`)
         .send({
-          customerName: "Bob Customer",
-          items: [{ productId: testProductId, quantity: 2 }],
+          customerName: "Overbuyer Customer",
+          items: [{ productId: testProductId, quantity: 9999 }],
         });
-      expect(createRes.status).toBe(201);
-      rejectedSaleId = createRes.body.data.id;
 
-      // 2. Admin rejects the sale
-      const rejectRes = await request(app)
-        .post(`/api/sales/${rejectedSaleId}/reject`)
-        .set("Authorization", `Bearer ${adminToken}`)
-        .send({ reason: "Customer changed mind and did not hand over cash." });
+      expect(res.status).toBe(400);
+      expect(res.body.code).toBe("INSUFFICIENT_STOCK");
 
-      expect(rejectRes.status).toBe(200);
-      expect(rejectRes.body.data.status).toBe("REJECTED");
-      expect(rejectRes.body.data.rejectionReason).toContain(
-        "Customer changed mind",
-      );
-
-      // 3. Stock remains untouched at 125
+      // Verify stock remains untouched at 125
       const prodRes = await request(app)
         .get(`/api/products/${testProductId}`)
-        .set("Authorization", `Bearer ${adminToken}`);
+        .set("Authorization", `Bearer ${managerToken}`);
       expect(prodRes.body.data.quantity).toBe(125);
     });
   });

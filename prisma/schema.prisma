@@ -22,9 +22,7 @@ enum UserStatus {
 }
 
 enum SaleStatus {
-  PENDING
-  APPROVED
-  REJECTED
+  COMPLETED
   CANCELLED
 }
 
@@ -54,8 +52,6 @@ model User {
   updatedAt          DateTime   @updatedAt
 
   createdSales   Sale[]          @relation("CreatedSales")
-  approvedSales  Sale[]          @relation("ApprovedBySales")
-  rejectedSales  Sale[]          @relation("RejectedBySales")
   stockMovements StockMovement[]
   auditLogs      AuditLog[]
   purchases      Purchase[]      @relation("CreatedPurchases")
@@ -247,7 +243,7 @@ model Sale {
   createdBy       User       @relation("CreatedSales", fields: [createdById], references: [id])
   customerId      String?
   customer        Customer?  @relation(fields: [customerId], references: [id])
-  status          SaleStatus @default(PENDING)
+  status          SaleStatus @default(COMPLETED)
   paymentType     String     @default("CASH") // CASH, CREDIT
   totalAmount     Decimal    @default(0.00) @db.Decimal(12, 2)
   paidAmount      Decimal    @default(0.00) @db.Decimal(12, 2)
@@ -257,13 +253,6 @@ model Sale {
   note            String?
   warehouseId     String?
   warehouse       Warehouse? @relation(fields: [warehouseId], references: [id])
-  approvedById    String?
-  approvedBy      User?      @relation("ApprovedBySales", fields: [approvedById], references: [id])
-  approvedAt      DateTime?
-  rejectedById    String?
-  rejectedBy      User?      @relation("RejectedBySales", fields: [rejectedById], references: [id])
-  rejectedAt      DateTime?
-  rejectionReason String?
   createdAt       DateTime   @default(now())
   updatedAt       DateTime   @updatedAt
 

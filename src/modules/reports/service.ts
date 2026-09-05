@@ -45,7 +45,6 @@ export class ReportsService {
         orderBy: { createdAt: "desc" },
         include: {
           createdBy: { select: { id: true, name: true, email: true } },
-          approvedBy: { select: { id: true, name: true, email: true } },
           items: {
             include: {
               product: { select: { id: true, name: true, sku: true } },
@@ -63,8 +62,6 @@ export class ReportsService {
       createdByEmail: s.createdBy.email,
       totalAmount: Number(s.totalAmount),
       status: s.status,
-      approvedBy: s.approvedBy?.name || null,
-      approvedAt: s.approvedAt,
       itemsCount: s.items.length,
     }));
 
@@ -225,18 +222,18 @@ export class ReportsService {
     const skip = (page - 1) * limit;
 
     const where: Prisma.SaleWhereInput = {
-      status: SaleStatus.APPROVED,
+      status: SaleStatus.COMPLETED,
     };
 
     if (query.startDate || query.endDate) {
-      where.approvedAt = {};
+      where.createdAt = {};
       if (query.startDate) {
-        where.approvedAt.gte = new Date(query.startDate);
+        where.createdAt.gte = new Date(query.startDate);
       }
       if (query.endDate) {
         const end = new Date(query.endDate);
         end.setHours(23, 59, 59, 999);
-        where.approvedAt.lte = end;
+        where.createdAt.lte = end;
       }
     }
 
@@ -246,10 +243,9 @@ export class ReportsService {
         where,
         skip,
         take: limit,
-        orderBy: { approvedAt: "desc" },
+        orderBy: { createdAt: "desc" },
         include: {
           createdBy: { select: { id: true, name: true, email: true } },
-          approvedBy: { select: { id: true, name: true, email: true } },
         },
       }),
     ]);
@@ -260,8 +256,8 @@ export class ReportsService {
       amount: Number(s.totalAmount),
       createdByName: s.createdBy.name,
       createdByEmail: s.createdBy.email,
-      confirmedBy: s.approvedBy?.name || "Unknown",
-      confirmedAt: s.approvedAt,
+      confirmedBy: s.createdBy.name,
+      confirmedAt: s.createdAt,
       customerName: s.customerName || "N/A",
     }));
 
@@ -800,10 +796,10 @@ export class ReportsService {
 
     const hasDate = query.startDate || query.endDate;
 
-    // 1. Approved Sales & COGS
+    // 1. Completed Sales & COGS
     const sales = await prisma.sale.findMany({
       where: {
-        status: SaleStatus.APPROVED,
+        status: SaleStatus.COMPLETED,
         ...(hasDate ? { createdAt: dateFilter } : {}),
       },
       include: {

@@ -23,15 +23,6 @@ export const createSaleSchema = z.object({
   }),
 });
 
-export const rejectSaleSchema = z.object({
-  params: z.object({
-    id: z.string().uuid("Invalid sale ID"),
-  }),
-  body: z.object({
-    reason: z.string().min(3, "Rejection reason must be at least 3 characters"),
-  }),
-});
-
 export const listSalesSchema = z.object({
   query: z.object({
     page: z.string().optional(),

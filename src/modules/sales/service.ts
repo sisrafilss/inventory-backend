@@ -106,7 +106,7 @@ export class SalesService {
       if (!customerPhone) customerPhone = customer.phone;
     }
 
-    // 1. Fetch products to get current selling prices & purchase costs
+    // 1. Fetch products to get current selling prices, cost prices, and stock
     const productIds = data.items.map((i) => i.productId);
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
@@ -128,6 +128,13 @@ export class SalesService {
           `Product "${prod.name}" is currently inactive and cannot be sold.`,
           400,
           "PRODUCT_INACTIVE",
+        );
+      }
+      if (prod.quantity < item.quantity) {
+        throw new AppError(
+          `Insufficient stock for "${prod.name}" (SKU: ${prod.sku}). Available: ${prod.quantity}, Required: ${item.quantity}.`,
+          400,
+          "INSUFFICIENT_STOCK",
         );
       }
     }
@@ -162,65 +169,153 @@ export class SalesService {
       paidAmount = paymentType === "CREDIT" ? 0 : totalAmount;
     }
     const dueAmount = Math.max(0, totalAmount - paidAmount);
-
     const referenceNumber = this.generateReferenceNumber();
 
-    // 3. Create Sale as PENDING without deducting inventory yet
-    const sale = await prisma.sale.create({
-      data: {
-        referenceNumber,
-        createdById,
-        customerId: data.customerId || null,
-        warehouseId: data.warehouseId || null,
-        paymentType,
-        status: SaleStatus.PENDING,
-        totalAmount,
-        paidAmount,
-        dueAmount,
-        customerName,
-        customerPhone,
-        note: data.note?.trim() || null,
-        items: {
-          create: saleItemsData,
-        },
-      },
-      include: {
-        customer: {
-          select: { id: true, name: true, phone: true, currentDue: true },
-        },
-        warehouse: {
-          select: { id: true, name: true },
-        },
-        items: {
+    // 3. Atomically create sale in COMPLETED status and deduct inventory immediately
+    return await prisma.$transaction(
+      async (tx) => {
+        // Create Sale
+        const sale = await tx.sale.create({
+          data: {
+            referenceNumber,
+            createdById,
+            customerId: data.customerId || null,
+            warehouseId: data.warehouseId || null,
+            paymentType,
+            status: SaleStatus.COMPLETED,
+            totalAmount,
+            paidAmount,
+            dueAmount,
+            customerName,
+            customerPhone,
+            note: data.note?.trim() || null,
+            items: {
+              create: saleItemsData,
+            },
+          },
           include: {
-            product: {
-              select: { id: true, name: true, sku: true, unit: true },
+            customer: {
+              select: { id: true, name: true, phone: true, currentDue: true },
             },
             warehouse: {
               select: { id: true, name: true },
             },
+            items: {
+              include: {
+                product: {
+                  select: { id: true, name: true, sku: true, unit: true },
+                },
+                warehouse: {
+                  select: { id: true, name: true },
+                },
+              },
+            },
+            createdBy: {
+              select: { id: true, name: true, email: true },
+            },
           },
-        },
-        createdBy: {
-          select: { id: true, name: true, email: true },
-        },
-      },
-    });
+        });
 
-    await logAudit({
-      actorId: createdById,
-      action: "SALE_SUBMITTED",
-      entityType: "Sale",
-      entityId: sale.id,
-      metadata: {
-        referenceNumber: sale.referenceNumber,
-        totalAmount,
-        paymentType,
-        itemCount: sale.items.length,
-      },
-    });
+        // Deduct inventory for each item
+        for (const item of data.items) {
+          const product = await tx.product.findUnique({
+            where: { id: item.productId },
+          });
 
-    return this.formatSaleResponse(sale);
+          if (!product || product.quantity < item.quantity) {
+            throw new AppError(
+              `Insufficient stock for item "${item.productId}".`,
+              400,
+              "INSUFFICIENT_STOCK",
+            );
+          }
+
+          const qtyBefore = product.quantity;
+          const qtyAfter = qtyBefore - item.quantity;
+
+          // Global product stock decrement
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { quantity: qtyAfter },
+          });
+
+          // Warehouse stock decrement if warehouse assigned
+          const targetWarehouseId = item.warehouseId || data.warehouseId;
+          if (targetWarehouseId) {
+            const whStock = await tx.warehouseStock.findUnique({
+              where: {
+                warehouseId_productId: {
+                  warehouseId: targetWarehouseId,
+                  productId: item.productId,
+                },
+              },
+            });
+
+            if (whStock) {
+              await tx.warehouseStock.update({
+                where: { id: whStock.id },
+                data: { quantity: { decrement: item.quantity } },
+              });
+            } else {
+              await tx.warehouseStock.create({
+                data: {
+                  warehouseId: targetWarehouseId,
+                  productId: item.productId,
+                  quantity: -item.quantity,
+                },
+              });
+            }
+          }
+
+          // Immutable StockMovement audit record
+          await tx.stockMovement.create({
+            data: {
+              productId: item.productId,
+              type: StockMovementType.SALE_DEDUCTION,
+              quantityBefore: qtyBefore,
+              quantityChange: -item.quantity,
+              quantityAfter: qtyAfter,
+              referenceType: "SALE",
+              referenceId: sale.id,
+              reason: `Deducted on sale #${sale.referenceNumber}`,
+              performedById: createdById,
+            },
+          });
+        }
+
+        // Increment Customer current dues if outstanding credit
+        if (data.customerId && dueAmount > 0) {
+          await tx.customer.update({
+            where: { id: data.customerId },
+            data: {
+              currentDue: { increment: dueAmount },
+            },
+          });
+        }
+
+        // Audit log
+        await logAudit(
+          {
+            actorId: createdById,
+            action: "SALE_CREATED",
+            entityType: "Sale",
+            entityId: sale.id,
+            metadata: {
+              referenceNumber: sale.referenceNumber,
+              totalAmount,
+              paymentType,
+              paidAmount,
+              dueAmount,
+              itemCount: sale.items.length,
+            },
+          },
+          tx,
+        );
+
+        return this.formatSaleResponse(sale);
+      },
+      { maxWait: 10000, timeout: 30000 },
+    );
   }
 
   static async listSales(
@@ -260,6 +355,11 @@ export class SalesService {
         { referenceNumber: { contains: s, mode: "insensitive" } },
         { customerName: { contains: s, mode: "insensitive" } },
         { customerPhone: { contains: s, mode: "insensitive" } },
+        {
+          customer: {
+            name: { contains: s, mode: "insensitive" },
+          },
+        },
       ];
     }
 
@@ -289,24 +389,26 @@ export class SalesService {
           warehouse: {
             select: { id: true, name: true },
           },
-          createdBy: {
-            select: { id: true, name: true, email: true },
-          },
-          approvedBy: {
-            select: { id: true, name: true, email: true },
-          },
-          rejectedBy: {
-            select: { id: true, name: true, email: true },
-          },
           items: {
             include: {
               product: {
-                select: { id: true, name: true, sku: true, unit: true },
+                select: {
+                  id: true,
+                  name: true,
+                  sku: true,
+                  unit: true,
+                  sellingPrice: true,
+                  costPrice: requestUser.role !== Role.MANAGER,
+                  company: { select: { id: true, name: true } },
+                },
               },
               warehouse: {
                 select: { id: true, name: true },
               },
             },
+          },
+          createdBy: {
+            select: { id: true, name: true, email: true },
           },
         },
       }),
@@ -343,12 +445,6 @@ export class SalesService {
         createdBy: {
           select: { id: true, name: true, email: true, phone: true },
         },
-        approvedBy: {
-          select: { id: true, name: true, email: true },
-        },
-        rejectedBy: {
-          select: { id: true, name: true, email: true },
-        },
         items: {
           include: {
             product: {
@@ -376,239 +472,5 @@ export class SalesService {
     }
 
     return this.formatSaleResponse(sale, requestUser.role);
-  }
-
-  static async approveSale(approverId: string, id: string) {
-    // Transaction-safe approval with stock deduction and customer credit adjustment
-    return await prisma.$transaction(
-      async (tx) => {
-        // 1. Fetch sale
-        const sale = await tx.sale.findUnique({
-          where: { id },
-          include: {
-            items: true,
-          },
-        });
-
-        if (!sale) {
-          throw new AppError("Sale not found.", 404, "SALE_NOT_FOUND");
-        }
-
-        // 2. Concurrency / Duplicate Approval Prevention
-        if (sale.status !== SaleStatus.PENDING) {
-          throw new AppError(
-            `Cannot approve sale: Status is already ${sale.status}.`,
-            409,
-            "SALE_NOT_PENDING",
-          );
-        }
-
-        // 3. Verify product availability and stock
-        for (const item of sale.items) {
-          const product = await tx.product.findUnique({
-            where: { id: item.productId },
-          });
-
-          if (!product) {
-            throw new AppError(
-              `Product with ID "${item.productId}" no longer exists.`,
-              404,
-              "PRODUCT_NOT_FOUND",
-            );
-          }
-
-          if (product.quantity < item.quantity) {
-            throw new AppError(
-              `Insufficient stock for "${product.name}" (SKU: ${product.sku}). Available: ${product.quantity}, Required: ${item.quantity}.`,
-              400,
-              "INSUFFICIENT_STOCK",
-            );
-          }
-
-          // Decrement global stock
-          const qtyBefore = product.quantity;
-          const qtyAfter = qtyBefore - item.quantity;
-
-          await tx.product.update({
-            where: { id: item.productId },
-            data: { quantity: qtyAfter },
-          });
-
-          // Decrement warehouse stock if warehouseId is set
-          const targetWarehouseId = item.warehouseId || sale.warehouseId;
-          if (targetWarehouseId) {
-            const whStock = await tx.warehouseStock.findUnique({
-              where: {
-                warehouseId_productId: {
-                  warehouseId: targetWarehouseId,
-                  productId: item.productId,
-                },
-              },
-            });
-
-            if (whStock) {
-              await tx.warehouseStock.update({
-                where: { id: whStock.id },
-                data: { quantity: { decrement: item.quantity } },
-              });
-            } else {
-              await tx.warehouseStock.create({
-                data: {
-                  warehouseId: targetWarehouseId,
-                  productId: item.productId,
-                  quantity: -item.quantity,
-                },
-              });
-            }
-          }
-
-          // Create immutable negative stock movement
-          await tx.stockMovement.create({
-            data: {
-              productId: item.productId,
-              type: StockMovementType.SALE_DEDUCTION,
-              quantityBefore: qtyBefore,
-              quantityChange: -item.quantity,
-              quantityAfter: qtyAfter,
-              referenceType: "SALE",
-              referenceId: sale.id,
-              reason: `Deducted upon sale approval (#${sale.referenceNumber})`,
-              performedById: approverId,
-            },
-          });
-        }
-
-        // 4. Update Customer Dues if sale has dueAmount > 0 and customerId is set
-        const due = Number(sale.dueAmount);
-        if (sale.customerId && due > 0) {
-          await tx.customer.update({
-            where: { id: sale.customerId },
-            data: {
-              currentDue: { increment: due },
-            },
-          });
-        }
-
-        // 5. Update Sale status to APPROVED
-        const approvedSale = await tx.sale.update({
-          where: { id },
-          data: {
-            status: SaleStatus.APPROVED,
-            approvedById: approverId,
-            approvedAt: new Date(),
-          },
-          include: {
-            customer: {
-              select: { id: true, name: true, phone: true, currentDue: true },
-            },
-            warehouse: {
-              select: { id: true, name: true },
-            },
-            createdBy: {
-              select: { id: true, name: true, email: true },
-            },
-            approvedBy: {
-              select: { id: true, name: true, email: true },
-            },
-            items: {
-              include: {
-                product: {
-                  select: { id: true, name: true, sku: true, unit: true },
-                },
-                warehouse: {
-                  select: { id: true, name: true },
-                },
-              },
-            },
-          },
-        });
-
-        // 6. Audit log
-        await logAudit(
-          {
-            actorId: approverId,
-            action: "SALE_APPROVED",
-            entityType: "Sale",
-            entityId: id,
-            metadata: {
-              referenceNumber: approvedSale.referenceNumber,
-              totalAmount: Number(approvedSale.totalAmount),
-              dueAmount: Number(approvedSale.dueAmount),
-              createdById: approvedSale.createdById,
-            },
-          },
-          tx,
-        );
-
-        return this.formatSaleResponse(approvedSale);
-      },
-      { maxWait: 10000, timeout: 30000 },
-    );
-  }
-
-  static async rejectSale(rejectorId: string, id: string, reason: string) {
-    const sale = await prisma.sale.findUnique({
-      where: { id },
-    });
-
-    if (!sale) {
-      throw new AppError("Sale not found.", 404, "SALE_NOT_FOUND");
-    }
-
-    if (sale.status !== SaleStatus.PENDING) {
-      throw new AppError(
-        `Cannot reject sale: Status is already ${sale.status}.`,
-        409,
-        "SALE_NOT_PENDING",
-      );
-    }
-
-    const rejectedSale = await prisma.sale.update({
-      where: { id },
-      data: {
-        status: SaleStatus.REJECTED,
-        rejectedById: rejectorId,
-        rejectedAt: new Date(),
-        rejectionReason: reason.trim(),
-      },
-      include: {
-        customer: {
-          select: { id: true, name: true, phone: true, currentDue: true },
-        },
-        warehouse: {
-          select: { id: true, name: true },
-        },
-        createdBy: {
-          select: { id: true, name: true, email: true },
-        },
-        rejectedBy: {
-          select: { id: true, name: true, email: true },
-        },
-        items: {
-          include: {
-            product: {
-              select: { id: true, name: true, sku: true, unit: true },
-            },
-            warehouse: {
-              select: { id: true, name: true },
-            },
-          },
-        },
-      },
-    });
-
-    await logAudit({
-      actorId: rejectorId,
-      action: "SALE_REJECTED",
-      entityType: "Sale",
-      entityId: id,
-      metadata: {
-        referenceNumber: sale.referenceNumber,
-        reason,
-        createdById: sale.createdById,
-      },
-    });
-
-    return this.formatSaleResponse(rejectedSale);
   }
 }

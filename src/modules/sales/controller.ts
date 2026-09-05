@@ -10,7 +10,7 @@ export class SalesController {
       return sendSuccess(
         res,
         sale,
-        "Sale submitted successfully. Pending manager/admin approval and cash handover.",
+        "Sale created and inventory deducted successfully.",
         201,
       );
     } catch (error) {
@@ -49,32 +49,6 @@ export class SalesController {
         req.params.id,
       );
       return sendSuccess(res, sale);
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  static async approveSale(req: Request, res: Response, next: NextFunction) {
-    try {
-      const sale = await SalesService.approveSale(req.user!.id, req.params.id);
-      return sendSuccess(
-        res,
-        sale,
-        "Sale approved and inventory deducted successfully.",
-      );
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  static async rejectSale(req: Request, res: Response, next: NextFunction) {
-    try {
-      const sale = await SalesService.rejectSale(
-        req.user!.id,
-        req.params.id,
-        req.body.reason,
-      );
-      return sendSuccess(res, sale, "Sale rejected successfully.");
     } catch (error) {
       next(error);
     }

@@ -17,12 +17,10 @@ export class DashboardService {
       productsCount,
       categoriesCount,
       allActiveProducts,
-      pendingSalesCount,
-      todayApprovedSales,
-      monthApprovedSales,
+      todaySales,
+      monthSales,
       recentSales,
       recentAdjustments,
-      pendingSalesQueue,
     ] = await Promise.all([
       prisma.product.count({ where: { isActive: true } }),
       prisma.category.count({ where: { isActive: true } }),
@@ -35,23 +33,22 @@ export class DashboardService {
           reorderLevel: true,
         },
       }),
-      prisma.sale.count({ where: { status: SaleStatus.PENDING } }),
       prisma.sale.findMany({
         where: {
-          status: SaleStatus.APPROVED,
-          approvedAt: { gte: todayStart },
+          status: SaleStatus.COMPLETED,
+          createdAt: { gte: todayStart },
         },
         select: { totalAmount: true },
       }),
       prisma.sale.findMany({
         where: {
-          status: SaleStatus.APPROVED,
-          approvedAt: { gte: monthStart },
+          status: SaleStatus.COMPLETED,
+          createdAt: { gte: monthStart },
         },
         select: { totalAmount: true },
       }),
       prisma.sale.findMany({
-        take: 5,
+        take: 8,
         orderBy: { createdAt: "desc" },
         include: {
           createdBy: { select: { id: true, name: true, email: true } },
@@ -63,19 +60,6 @@ export class DashboardService {
         include: {
           product: { select: { id: true, name: true, sku: true } },
           performedBy: { select: { id: true, name: true, email: true } },
-        },
-      }),
-      prisma.sale.findMany({
-        where: { status: SaleStatus.PENDING },
-        take: 5,
-        orderBy: { createdAt: "desc" },
-        include: {
-          createdBy: { select: { id: true, name: true, email: true } },
-          items: {
-            include: {
-              product: { select: { name: true, sku: true } },
-            },
-          },
         },
       }),
     ]);
@@ -97,11 +81,11 @@ export class DashboardService {
       }
     }
 
-    const todaySalesAmount = todayApprovedSales.reduce(
+    const todaySalesAmount = todaySales.reduce(
       (sum, s) => sum + Number(s.totalAmount),
       0,
     );
-    const monthSalesAmount = monthApprovedSales.reduce(
+    const monthSalesAmount = monthSales.reduce(
       (sum, s) => sum + Number(s.totalAmount),
       0,
     );
@@ -116,8 +100,8 @@ export class DashboardService {
         inventoryRetailValue: totalRetailValue.toFixed(2),
         lowStockCount,
         outOfStockCount,
-        pendingSalesCount,
-        todayApprovedCount: todayApprovedSales.length,
+        pendingSalesCount: 0,
+        todaySalesCount: todaySales.length,
         todaySalesAmount: todaySalesAmount.toFixed(2),
         monthSalesAmount: monthSalesAmount.toFixed(2),
       },
@@ -126,10 +110,7 @@ export class DashboardService {
         totalAmount: Number(s.totalAmount),
       })),
       recentAdjustments,
-      pendingSalesQueue: pendingSalesQueue.map((s) => ({
-        ...s,
-        totalAmount: Number(s.totalAmount),
-      })),
+      pendingSalesQueue: [],
     };
   }
 }
