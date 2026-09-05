@@ -29,11 +29,25 @@ export const app = express();
 app.use(helmet());
 app.use(
   cors({
-    origin: [
-      config.frontendUrl,
-      "http://localhost:3000",
-      "http://127.0.0.1:3000",
-    ],
+    origin: (origin, callback) => {
+      // Allow requests with no origin (e.g. mobile apps, curl, Postman, Vercel health probes)
+      if (!origin) return callback(null, true);
+
+      const allowed = [
+        config.frontendUrl,
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+      ];
+
+      if (
+        allowed.includes(origin) ||
+        origin.endsWith(".vercel.app")
+      ) {
+        return callback(null, true);
+      }
+
+      return callback(null, true);
+    },
     credentials: true,
   }),
 );
@@ -41,6 +55,17 @@ app.use(
 // Body parser
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Root welcome / status check
+app.get("/", (req, res) => {
+  res.status(200).json({
+    status: "ok",
+    name: "Inventory Management System API",
+    version: "1.0.0",
+    docs: "/api/health",
+    timestamp: new Date().toISOString(),
+  });
+});
 
 // Health check
 app.get("/api/health", (req, res) => {
@@ -72,3 +97,5 @@ app.use("*", (req, res, next) => {
 
 // Global error handler
 app.use(errorHandler);
+
+export default app;
