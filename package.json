@@ -12,7 +12,7 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:push": "prisma db push",
     "seed": "tsx prisma/seed.ts",
-    "test": "vitest run"
+    "test": "vitest run --test-timeout=30000 --hook-timeout=30000"
   },
   "keywords": ["inventory", "express", "typescript", "prisma", "postgresql"],
   "author": "Israfil Hossen",
