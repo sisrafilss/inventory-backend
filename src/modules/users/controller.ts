@@ -61,43 +61,6 @@ export class UsersController {
     }
   }
 
-  static async verifySalesOfficer(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) {
-    try {
-      const user = await UsersService.verifySalesOfficer(
-        req.user!.id,
-        req.params.id,
-      );
-      return sendSuccess(
-        res,
-        user,
-        "Sales Officer verified and activated successfully.",
-      );
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  static async rejectSalesOfficer(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) {
-    try {
-      const user = await UsersService.rejectSalesOfficer(
-        req.user!.id,
-        req.params.id,
-        req.body.reason,
-      );
-      return sendSuccess(res, user, "Sales Officer registration rejected.");
-    } catch (error) {
-      next(error);
-    }
-  }
-
   static async updateStatus(req: Request, res: Response, next: NextFunction) {
     try {
       const user = await UsersService.updateUserStatus(

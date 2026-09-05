@@ -3,24 +3,6 @@ import { AuthService } from "./service.js";
 import { sendSuccess } from "../../utils/apiResponse.js";
 
 export class AuthController {
-  static async registerSalesOfficer(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) {
-    try {
-      const user = await AuthService.registerSalesOfficer(req.body);
-      return sendSuccess(
-        res,
-        user,
-        "Registration submitted successfully. Your account is pending administrator verification.",
-        201,
-      );
-    } catch (error) {
-      next(error);
-    }
-  }
-
   static async login(req: Request, res: Response, next: NextFunction) {
     try {
       const result = await AuthService.login(req.body);

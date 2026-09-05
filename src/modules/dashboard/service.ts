@@ -1,5 +1,5 @@
 import { prisma } from "../../config/db.js";
-import { Role, SaleStatus, UserStatus } from "@prisma/client";
+import { Role, SaleStatus } from "@prisma/client";
 
 export class DashboardService {
   static async getSummary(user: { id: string; role: Role }) {
@@ -12,83 +12,12 @@ export class DashboardService {
       1,
     );
 
-    if (user.role === Role.SALES_OFFICER) {
-      // Sales Officer Dashboard
-      const [
-        myPendingCount,
-        myTodayApprovedSales,
-        myMonthApprovedSales,
-        myRecentSales,
-      ] = await Promise.all([
-        prisma.sale.count({
-          where: { salesOfficerId: user.id, status: SaleStatus.PENDING },
-        }),
-        prisma.sale.findMany({
-          where: {
-            salesOfficerId: user.id,
-            status: SaleStatus.APPROVED,
-            approvedAt: { gte: todayStart },
-          },
-          select: { totalAmount: true },
-        }),
-        prisma.sale.findMany({
-          where: {
-            salesOfficerId: user.id,
-            status: SaleStatus.APPROVED,
-            approvedAt: { gte: monthStart },
-          },
-          select: { totalAmount: true },
-        }),
-        prisma.sale.findMany({
-          where: { salesOfficerId: user.id },
-          take: 5,
-          orderBy: { createdAt: "desc" },
-          include: {
-            items: {
-              include: {
-                product: { select: { name: true, sku: true } },
-              },
-            },
-          },
-        }),
-      ]);
-
-      const todaySalesAmount = myTodayApprovedSales.reduce(
-        (sum, s) => sum + Number(s.totalAmount),
-        0,
-      );
-      const monthSalesAmount = myMonthApprovedSales.reduce(
-        (sum, s) => sum + Number(s.totalAmount),
-        0,
-      );
-
-      return {
-        role: user.role,
-        stats: {
-          pendingSalesCount: myPendingCount,
-          todayApprovedCount: myTodayApprovedSales.length,
-          todaySalesAmount: todaySalesAmount.toFixed(2),
-          monthSalesAmount: monthSalesAmount.toFixed(2),
-        },
-        recentSales: myRecentSales.map((s) => ({
-          ...s,
-          totalAmount: Number(s.totalAmount),
-          items: s.items.map((i) => ({
-            ...i,
-            unitPrice: Number(i.unitPrice),
-            lineTotal: Number(i.lineTotal),
-          })),
-        })),
-      };
-    }
-
     // Admin, Super Admin, Manager Dashboard
     const [
       productsCount,
       categoriesCount,
       allActiveProducts,
       pendingSalesCount,
-      pendingRegistrationsCount,
       todayApprovedSales,
       monthApprovedSales,
       recentSales,
@@ -107,11 +36,6 @@ export class DashboardService {
         },
       }),
       prisma.sale.count({ where: { status: SaleStatus.PENDING } }),
-      user.role === Role.MANAGER
-        ? 0
-        : prisma.user.count({
-            where: { role: Role.SALES_OFFICER, status: UserStatus.PENDING },
-          }),
       prisma.sale.findMany({
         where: {
           status: SaleStatus.APPROVED,
@@ -130,7 +54,7 @@ export class DashboardService {
         take: 5,
         orderBy: { createdAt: "desc" },
         include: {
-          salesOfficer: { select: { id: true, name: true, email: true } },
+          createdBy: { select: { id: true, name: true, email: true } },
         },
       }),
       prisma.stockMovement.findMany({
@@ -146,7 +70,7 @@ export class DashboardService {
         take: 5,
         orderBy: { createdAt: "desc" },
         include: {
-          salesOfficer: { select: { id: true, name: true, email: true } },
+          createdBy: { select: { id: true, name: true, email: true } },
           items: {
             include: {
               product: { select: { name: true, sku: true } },
@@ -193,7 +117,6 @@ export class DashboardService {
         lowStockCount,
         outOfStockCount,
         pendingSalesCount,
-        ...(user.role !== Role.MANAGER ? { pendingRegistrationsCount } : {}),
         todayApprovedCount: todayApprovedSales.length,
         todaySalesAmount: todaySalesAmount.toFixed(2),
         monthSalesAmount: monthSalesAmount.toFixed(2),

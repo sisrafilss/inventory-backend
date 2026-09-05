@@ -25,14 +25,14 @@ export class SalesController {
         ? parseInt(req.query.limit as string, 10)
         : 20;
       const status = req.query.status as SaleStatus;
-      const salesOfficerId = req.query.salesOfficerId as string;
+      const createdById = req.query.createdById as string;
       const search = req.query.search as string;
       const startDate = req.query.startDate as string;
       const endDate = req.query.endDate as string;
 
       const { sales, meta } = await SalesService.listSales(
         { id: req.user!.id, role: req.user!.role },
-        { page, limit, status, salesOfficerId, search, startDate, endDate },
+        { page, limit, status, createdById, search, startDate, endDate },
       );
 
       return sendSuccess(res, sales, undefined, 200, meta);

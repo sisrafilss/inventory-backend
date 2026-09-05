@@ -13,14 +13,14 @@ const router = Router();
 
 router.use(requireAuth);
 
-// List sales (all roles, but Sales Officers are restricted to their own sales)
+// List sales
 router.get("/", validateRequest(listSalesSchema), SalesController.listSales);
 router.get("/:id", SalesController.getSaleById);
 
-// Create sale: Sales Officers (or Admin / Super Admin)
+// Create sale: Super Admin, Admin, Manager
 router.post(
   "/",
-  requireRoles(Role.SALES_OFFICER, Role.SUPER_ADMIN, Role.ADMIN),
+  requireRoles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER),
   validateRequest(createSaleSchema),
   SalesController.createSale,
 );

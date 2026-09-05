@@ -109,7 +109,7 @@ export class InventoryService {
         },
         movement,
       };
-    });
+    }, { maxWait: 10000, timeout: 30000 });
 
     return result;
   }

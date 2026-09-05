@@ -3,64 +3,9 @@ import { hashPassword, comparePassword } from "../../utils/password.js";
 import { signToken } from "../../utils/jwt.js";
 import { AppError } from "../../errors/AppError.js";
 import { logAudit } from "../../utils/audit.js";
-import { Role, UserStatus } from "@prisma/client";
+import { UserStatus } from "@prisma/client";
 
 export class AuthService {
-  static async registerSalesOfficer(data: {
-    name: string;
-    email: string;
-    password: string;
-    phone?: string;
-    address?: string;
-  }) {
-    const existing = await prisma.user.findUnique({
-      where: { email: data.email.toLowerCase().trim() },
-    });
-
-    if (existing) {
-      throw new AppError(
-        "An account with this email address already exists.",
-        409,
-        "EMAIL_EXISTS",
-      );
-    }
-
-    const passwordHash = await hashPassword(data.password);
-
-    const user = await prisma.user.create({
-      data: {
-        name: data.name.trim(),
-        email: data.email.toLowerCase().trim(),
-        phone: data.phone?.trim(),
-        address: data.address?.trim(),
-        passwordHash,
-        role: Role.SALES_OFFICER,
-        status: UserStatus.PENDING,
-        mustChangePassword: false,
-      },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        phone: true,
-        address: true,
-        role: true,
-        status: true,
-        createdAt: true,
-      },
-    });
-
-    await logAudit({
-      actorId: null,
-      action: "SALES_OFFICER_REGISTERED",
-      entityType: "User",
-      entityId: user.id,
-      metadata: { email: user.email, name: user.name },
-    });
-
-    return user;
-  }
-
   static async login(data: { email: string; password: string }) {
     const user = await prisma.user.findUnique({
       where: { email: data.email.toLowerCase().trim() },

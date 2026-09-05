@@ -5,8 +5,6 @@ import { validateRequest } from "../../middlewares/validateRequest.js";
 import {
   createUserSchema,
   updateUserSchema,
-  verifyUserSchema,
-  rejectUserSchema,
   updateStatusSchema,
   resetPasswordSchema,
   listUsersSchema,
@@ -29,18 +27,6 @@ router.patch(
   "/:id",
   validateRequest(updateUserSchema),
   UsersController.updateUser,
-);
-
-router.post(
-  "/:id/verify",
-  validateRequest(verifyUserSchema),
-  UsersController.verifySalesOfficer,
-);
-
-router.post(
-  "/:id/reject",
-  validateRequest(rejectUserSchema),
-  UsersController.rejectSalesOfficer,
 );
 
 router.patch(

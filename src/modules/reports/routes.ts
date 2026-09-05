@@ -11,7 +11,6 @@ router.use(requireRoles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER));
 router.get("/sales", ReportsController.getSalesReport);
 router.get("/inventory", ReportsController.getInventoryReport);
 router.get("/stock-adjustments", ReportsController.getStockAdjustmentsReport);
-router.get("/sales-officers", ReportsController.getSalesOfficersReport);
 router.get("/cash-handover", ReportsController.getCashHandoverReport);
 
 export default router;

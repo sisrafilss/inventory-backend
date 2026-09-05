@@ -11,7 +11,6 @@ enum Role {
   SUPER_ADMIN
   ADMIN
   MANAGER
-  SALES_OFFICER
 }
 
 enum UserStatus {
@@ -46,18 +45,18 @@ model User {
   phone              String?
   address            String?
   passwordHash       String
-  role               Role       @default(SALES_OFFICER)
-  status             UserStatus @default(PENDING)
+  role               Role       @default(MANAGER)
+  status             UserStatus @default(ACTIVE)
   mustChangePassword Boolean    @default(false)
   lastLoginAt        DateTime?
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
 
-  salesOfficerSales Sale[]          @relation("SalesOfficerSales")
-  approvedSales     Sale[]          @relation("ApprovedBySales")
-  rejectedSales     Sale[]          @relation("RejectedBySales")
-  stockMovements    StockMovement[]
-  auditLogs         AuditLog[]
+  createdSales   Sale[]          @relation("CreatedSales")
+  approvedSales  Sale[]          @relation("ApprovedBySales")
+  rejectedSales  Sale[]          @relation("RejectedBySales")
+  stockMovements StockMovement[]
+  auditLogs      AuditLog[]
 
   @@index([email])
   @@index([role])
@@ -103,8 +102,8 @@ model Product {
 model Sale {
   id              String     @id @default(uuid())
   referenceNumber String     @unique
-  salesOfficerId  String
-  salesOfficer    User       @relation("SalesOfficerSales", fields: [salesOfficerId], references: [id])
+  createdById     String
+  createdBy       User       @relation("CreatedSales", fields: [createdById], references: [id])
   status          SaleStatus @default(PENDING)
   totalAmount     Decimal    @default(0.00) @db.Decimal(12, 2)
   customerName    String?
@@ -123,7 +122,7 @@ model Sale {
   items SaleItem[]
 
   @@index([status])
-  @@index([salesOfficerId])
+  @@index([createdById])
   @@index([createdAt])
 }
 

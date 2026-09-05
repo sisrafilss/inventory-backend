@@ -1,20 +1,10 @@
 import { Router } from "express";
 import { AuthController } from "./controller.js";
 import { validateRequest } from "../../middlewares/validateRequest.js";
-import {
-  registerSalesOfficerSchema,
-  loginSchema,
-  changePasswordSchema,
-} from "./schema.js";
+import { loginSchema, changePasswordSchema } from "./schema.js";
 import { requireAuth } from "../../middlewares/auth.js";
 
 const router = Router();
-
-router.post(
-  "/register-sales-officer",
-  validateRequest(registerSalesOfficerSchema),
-  AuthController.registerSalesOfficer,
-);
 
 router.post("/login", validateRequest(loginSchema), AuthController.login);
 

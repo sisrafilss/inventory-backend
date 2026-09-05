@@ -11,7 +11,7 @@ export class SalesService {
   }
 
   static async createSale(
-    salesOfficerId: string,
+    createdById: string,
     data: {
       customerName?: string;
       customerPhone?: string;
@@ -67,7 +67,7 @@ export class SalesService {
     const sale = await prisma.sale.create({
       data: {
         referenceNumber,
-        salesOfficerId,
+        createdById,
         status: SaleStatus.PENDING,
         totalAmount,
         customerName: data.customerName?.trim() || null,
@@ -85,14 +85,14 @@ export class SalesService {
             },
           },
         },
-        salesOfficer: {
+        createdBy: {
           select: { id: true, name: true, email: true },
         },
       },
     });
 
     await logAudit({
-      actorId: salesOfficerId,
+      actorId: createdById,
       action: "SALE_SUBMITTED",
       entityType: "Sale",
       entityId: sale.id,
@@ -120,7 +120,7 @@ export class SalesService {
       page?: number;
       limit?: number;
       status?: SaleStatus;
-      salesOfficerId?: string;
+      createdById?: string;
       search?: string;
       startDate?: string;
       endDate?: string;
@@ -132,11 +132,8 @@ export class SalesService {
 
     const where: Prisma.SaleWhereInput = {};
 
-    // Strict rule: Sales Officers can ONLY view their own sales
-    if (requestUser.role === Role.SALES_OFFICER) {
-      where.salesOfficerId = requestUser.id;
-    } else if (query.salesOfficerId) {
-      where.salesOfficerId = query.salesOfficerId;
+    if (query.createdById) {
+      where.createdById = query.createdById;
     }
 
     if (query.status) {
@@ -172,7 +169,7 @@ export class SalesService {
         take: limit,
         orderBy: { createdAt: "desc" },
         include: {
-          salesOfficer: {
+          createdBy: {
             select: { id: true, name: true, email: true },
           },
           approvedBy: {
@@ -214,13 +211,13 @@ export class SalesService {
   }
 
   static async getSaleById(
-    requestUser: { id: string; role: Role },
+    _requestUser: { id: string; role: Role },
     id: string,
   ) {
     const sale = await prisma.sale.findUnique({
       where: { id },
       include: {
-        salesOfficer: {
+        createdBy: {
           select: { id: true, name: true, email: true, phone: true },
         },
         approvedBy: {
@@ -247,18 +244,6 @@ export class SalesService {
 
     if (!sale) {
       throw new AppError("Sale not found.", 404, "SALE_NOT_FOUND");
-    }
-
-    // Role check: Sales Officers can only view their own sale
-    if (
-      requestUser.role === Role.SALES_OFFICER &&
-      sale.salesOfficerId !== requestUser.id
-    ) {
-      throw new AppError(
-        "Forbidden: You can only view your own sales.",
-        403,
-        "FORBIDDEN",
-      );
     }
 
     return {
@@ -352,7 +337,7 @@ export class SalesService {
           approvedAt: new Date(),
         },
         include: {
-          salesOfficer: {
+          createdBy: {
             select: { id: true, name: true, email: true },
           },
           approvedBy: {
@@ -378,7 +363,7 @@ export class SalesService {
           metadata: {
             referenceNumber: approvedSale.referenceNumber,
             totalAmount: Number(approvedSale.totalAmount),
-            salesOfficerId: approvedSale.salesOfficerId,
+            createdById: approvedSale.createdById,
           },
         },
         tx,
@@ -393,7 +378,7 @@ export class SalesService {
           lineTotal: Number(i.lineTotal),
         })),
       };
-    });
+    }, { maxWait: 10000, timeout: 30000 });
   }
 
   static async rejectSale(rejectorId: string, id: string, reason: string) {
@@ -422,7 +407,7 @@ export class SalesService {
         rejectionReason: reason.trim(),
       },
       include: {
-        salesOfficer: {
+        createdBy: {
           select: { id: true, name: true, email: true },
         },
         rejectedBy: {
@@ -446,7 +431,7 @@ export class SalesService {
       metadata: {
         referenceNumber: sale.referenceNumber,
         reason,
-        salesOfficerId: sale.salesOfficerId,
+        createdById: sale.createdById,
       },
     });
 

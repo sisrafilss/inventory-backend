@@ -1,11 +1,11 @@
 import { prisma } from "../../config/db.js";
-import { SaleStatus, StockMovementType, Role, Prisma } from "@prisma/client";
+import { SaleStatus, StockMovementType, Prisma } from "@prisma/client";
 
 export class ReportsService {
   static async getSalesReport(query: {
     startDate?: string;
     endDate?: string;
-    salesOfficerId?: string;
+    createdById?: string;
     status?: SaleStatus;
     page?: number;
     limit?: number;
@@ -20,8 +20,8 @@ export class ReportsService {
       where.status = query.status;
     }
 
-    if (query.salesOfficerId) {
-      where.salesOfficerId = query.salesOfficerId;
+    if (query.createdById) {
+      where.createdById = query.createdById;
     }
 
     if (query.startDate || query.endDate) {
@@ -44,7 +44,7 @@ export class ReportsService {
         take: limit,
         orderBy: { createdAt: "desc" },
         include: {
-          salesOfficer: { select: { id: true, name: true, email: true } },
+          createdBy: { select: { id: true, name: true, email: true } },
           approvedBy: { select: { id: true, name: true, email: true } },
           items: {
             include: {
@@ -59,8 +59,8 @@ export class ReportsService {
       saleId: s.id,
       referenceNumber: s.referenceNumber,
       date: s.createdAt,
-      salesOfficer: s.salesOfficer.name,
-      salesOfficerEmail: s.salesOfficer.email,
+      createdByName: s.createdBy.name,
+      createdByEmail: s.createdBy.email,
       totalAmount: Number(s.totalAmount),
       status: s.status,
       approvedBy: s.approvedBy?.name || null,
@@ -214,79 +214,6 @@ export class ReportsService {
     };
   }
 
-  static async getSalesOfficersReport(query: {
-    startDate?: string;
-    endDate?: string;
-  }) {
-    const salesOfficers = await prisma.user.findMany({
-      where: { role: Role.SALES_OFFICER },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        status: true,
-      },
-    });
-
-    const whereSale: Prisma.SaleWhereInput = {};
-    if (query.startDate || query.endDate) {
-      whereSale.createdAt = {};
-      if (query.startDate) {
-        whereSale.createdAt.gte = new Date(query.startDate);
-      }
-      if (query.endDate) {
-        const end = new Date(query.endDate);
-        end.setHours(23, 59, 59, 999);
-        whereSale.createdAt.lte = end;
-      }
-    }
-
-    const report = await Promise.all(
-      salesOfficers.map(async (officer) => {
-        const [totalSubmitted, approvedSales, rejectedSales] =
-          await Promise.all([
-            prisma.sale.count({
-              where: { ...whereSale, salesOfficerId: officer.id },
-            }),
-            prisma.sale.findMany({
-              where: {
-                ...whereSale,
-                salesOfficerId: officer.id,
-                status: SaleStatus.APPROVED,
-              },
-              select: { totalAmount: true },
-            }),
-            prisma.sale.count({
-              where: {
-                ...whereSale,
-                salesOfficerId: officer.id,
-                status: SaleStatus.REJECTED,
-              },
-            }),
-          ]);
-
-        const totalApprovedAmount = approvedSales.reduce(
-          (sum, s) => sum + Number(s.totalAmount),
-          0,
-        );
-
-        return {
-          id: officer.id,
-          name: officer.name,
-          email: officer.email,
-          status: officer.status,
-          totalSubmitted,
-          approvedCount: approvedSales.length,
-          rejectedCount: rejectedSales,
-          pendingCount: totalSubmitted - approvedSales.length - rejectedSales,
-          approvedSalesAmount: totalApprovedAmount.toFixed(2),
-        };
-      }),
-    );
-
-    return report;
-  }
-
   static async getCashHandoverReport(query: {
     startDate?: string;
     endDate?: string;
@@ -321,7 +248,7 @@ export class ReportsService {
         take: limit,
         orderBy: { approvedAt: "desc" },
         include: {
-          salesOfficer: { select: { id: true, name: true, email: true } },
+          createdBy: { select: { id: true, name: true, email: true } },
           approvedBy: { select: { id: true, name: true, email: true } },
         },
       }),
@@ -331,8 +258,8 @@ export class ReportsService {
       saleId: s.id,
       referenceNumber: s.referenceNumber,
       amount: Number(s.totalAmount),
-      salesOfficer: s.salesOfficer.name,
-      salesOfficerEmail: s.salesOfficer.email,
+      createdByName: s.createdBy.name,
+      createdByEmail: s.createdBy.email,
       confirmedBy: s.approvedBy?.name || "Unknown",
       confirmedAt: s.approvedAt,
       customerName: s.customerName || "N/A",

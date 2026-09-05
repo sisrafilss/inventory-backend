@@ -9,7 +9,7 @@ export class ReportsController {
       const { report, meta } = await ReportsService.getSalesReport({
         startDate: req.query.startDate as string,
         endDate: req.query.endDate as string,
-        salesOfficerId: req.query.salesOfficerId as string,
+        createdById: req.query.createdById as string,
         status: req.query.status as SaleStatus,
         page: req.query.page ? parseInt(req.query.page as string, 10) : 1,
         limit: req.query.limit ? parseInt(req.query.limit as string, 10) : 50,
@@ -59,22 +59,6 @@ export class ReportsController {
         limit: req.query.limit ? parseInt(req.query.limit as string, 10) : 50,
       });
       return sendSuccess(res, report, undefined, 200, meta);
-    } catch (error) {
-      next(error);
-    }
-  }
-
-  static async getSalesOfficersReport(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) {
-    try {
-      const report = await ReportsService.getSalesOfficersReport({
-        startDate: req.query.startDate as string,
-        endDate: req.query.endDate as string,
-      });
-      return sendSuccess(res, report);
     } catch (error) {
       next(error);
     }
