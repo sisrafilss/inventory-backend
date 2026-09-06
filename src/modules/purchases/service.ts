@@ -12,6 +12,7 @@ export interface CreatePurchaseItemInput {
 }
 
 export interface CreatePurchaseInput {
+  invoiceNumber?: string;
   supplierId?: string | null;
   supplierName?: string;
   paymentType: "CASH" | "SUPPLIER";
@@ -31,28 +32,56 @@ export class PurchasesService {
 
   static async createPurchase(actorId: string, input: CreatePurchaseInput) {
     if (!input.items || input.items.length === 0) {
-      throw new AppError("Purchase must contain at least one item.", 400, "EMPTY_ITEMS");
+      throw new AppError(
+        "Purchase must contain at least one item.",
+        400,
+        "EMPTY_ITEMS",
+      );
     }
 
-    const invoiceNumber = this.generateInvoiceNumber();
+    const invoiceNumber =
+      input.invoiceNumber && input.invoiceNumber.trim()
+        ? input.invoiceNumber.trim()
+        : this.generateInvoiceNumber();
+
+    const existingPurchase = await prisma.purchase.findUnique({
+      where: { invoiceNumber },
+    });
+    if (existingPurchase) {
+      throw new AppError(
+        `Invoice number "${invoiceNumber}" already exists.`,
+        409,
+        "INVOICE_EXISTS",
+      );
+    }
 
     return prisma.$transaction(
       async (tx) => {
         // Resolve default warehouse if not explicitly passed
         let defaultWarehouse = input.warehouseId
           ? await tx.warehouse.findUnique({ where: { id: input.warehouseId } })
-          : await tx.warehouse.findFirst({ where: { isDefault: true, isActive: true } });
+          : await tx.warehouse.findFirst({
+              where: { isDefault: true, isActive: true },
+            });
 
         if (!defaultWarehouse) {
-          defaultWarehouse = await tx.warehouse.findFirst({ where: { isActive: true } });
+          defaultWarehouse = await tx.warehouse.findFirst({
+            where: { isActive: true },
+          });
         }
 
         // Validate supplier if provided
         let resolvedSupplierName = input.supplierName;
         if (input.supplierId) {
-          const supplier = await tx.supplier.findUnique({ where: { id: input.supplierId } });
+          const supplier = await tx.supplier.findUnique({
+            where: { id: input.supplierId },
+          });
           if (!supplier) {
-            throw new AppError("Supplier not found.", 404, "SUPPLIER_NOT_FOUND");
+            throw new AppError(
+              "Supplier not found.",
+              404,
+              "SUPPLIER_NOT_FOUND",
+            );
           }
           resolvedSupplierName = supplier.name;
         } else if (input.paymentType === "SUPPLIER") {
@@ -68,15 +97,24 @@ export class PurchasesService {
         const itemCreates = [];
 
         for (const item of input.items) {
-          const product = await tx.product.findUnique({ where: { id: item.productId } });
+          const product = await tx.product.findUnique({
+            where: { id: item.productId },
+          });
           if (!product) {
-            throw new AppError(`Product not found (ID: ${item.productId})`, 404, "PRODUCT_NOT_FOUND");
+            throw new AppError(
+              `Product not found (ID: ${item.productId})`,
+              404,
+              "PRODUCT_NOT_FOUND",
+            );
           }
 
-          const lineTotal = Number((item.quantity * item.purchaseRate).toFixed(2));
+          const lineTotal = Number(
+            (item.quantity * item.purchaseRate).toFixed(2),
+          );
           totalAmount += lineTotal;
 
-          const targetWarehouseId = item.warehouseId || defaultWarehouse?.id || null;
+          const targetWarehouseId =
+            item.warehouseId || defaultWarehouse?.id || null;
 
           itemCreates.push({
             productId: item.productId,
@@ -88,13 +126,15 @@ export class PurchasesService {
             lineTotal,
           });
 
-          // 1. Increment product master total quantity & update cost price
+          // 1. Increment product master total quantity & update cost price and rates
           await tx.product.update({
             where: { id: item.productId },
             data: {
               quantity: { increment: item.quantity },
               costPrice: item.purchaseRate,
               dpRate: item.dpRate > 0 ? item.dpRate : undefined,
+              commissionPercent:
+                item.commissionPercent > 0 ? item.commissionPercent : undefined,
             },
           });
 
@@ -136,7 +176,9 @@ export class PurchasesService {
           input.paymentType === "CASH"
             ? totalAmount
             : Number(Math.min(input.paidAmount || 0, totalAmount).toFixed(2));
-        const dueAmount = Number(Math.max(0, totalAmount - paidAmount).toFixed(2));
+        const dueAmount = Number(
+          Math.max(0, totalAmount - paidAmount).toFixed(2),
+        );
 
         // If credit purchase and due > 0, update supplier currentDue
         if (input.supplierId && dueAmount > 0) {
@@ -291,7 +333,11 @@ export class PurchasesService {
     });
 
     if (!purchase) {
-      throw new AppError("Purchase record not found.", 404, "PURCHASE_NOT_FOUND");
+      throw new AppError(
+        "Purchase record not found.",
+        404,
+        "PURCHASE_NOT_FOUND",
+      );
     }
 
     return purchase;

@@ -69,4 +69,29 @@ export class ProductsController {
       next(error);
     }
   }
+
+  static async getProductByCode(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const product = await ProductsService.getProductByCode(req.params.code);
+      return sendSuccess(res, product);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updateSaleRate(req: Request, res: Response, next: NextFunction) {
+    try {
+      const product = await ProductsService.updateSaleRate(
+        req.user!.id,
+        req.body,
+      );
+      return sendSuccess(res, product, "Sale rate updated successfully.");
+    } catch (error) {
+      next(error);
+    }
+  }
 }

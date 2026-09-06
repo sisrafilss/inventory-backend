@@ -6,6 +6,7 @@ import {
   createProductSchema,
   updateProductSchema,
   listProductsSchema,
+  updateSaleRateSchema,
 } from "./schema.js";
 import { Role } from "@prisma/client";
 
@@ -19,14 +20,22 @@ router.get(
   validateRequest(listProductsSchema),
   ProductsController.listProducts,
 );
+router.get("/by-code/:code", ProductsController.getProductByCode);
 router.get("/:id", ProductsController.getProductById);
 
-// Only Super Admin, Admin, Manager can create/update products
+// Only Super Admin, Admin, Manager can create/update products & rates
 router.post(
   "/",
   requireRoles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER),
   validateRequest(createProductSchema),
   ProductsController.createProduct,
+);
+
+router.post(
+  "/sale-rate",
+  requireRoles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER),
+  validateRequest(updateSaleRateSchema),
+  ProductsController.updateSaleRate,
 );
 
 router.patch(

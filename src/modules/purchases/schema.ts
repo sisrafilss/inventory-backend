@@ -11,6 +11,7 @@ export const purchaseItemInputSchema = z.object({
 
 export const createPurchaseSchema = z.object({
   body: z.object({
+    invoiceNumber: z.string().max(100).optional(),
     supplierId: z.string().uuid("Invalid supplier ID").optional().nullable(),
     supplierName: z.string().max(100).optional(),
     paymentType: z.enum(["CASH", "SUPPLIER"]).default("CASH"),

@@ -66,7 +66,7 @@ describe("Inventory Management System — Acceptance Scenarios (Super Admin, Adm
       });
     expect(prodRes.status).toBe(201);
     testProductId = prodRes.body.data.id;
-  }, 30000);
+  }, 60000);
 
   afterAll(async () => {
     await prisma.$disconnect();

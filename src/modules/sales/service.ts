@@ -77,11 +77,13 @@ export class SalesService {
   static async createSale(
     createdById: string,
     data: {
+      referenceNumber?: string;
       customerId?: string;
       customerName?: string;
       customerPhone?: string;
       warehouseId?: string;
       paymentType?: "CASH" | "CREDIT";
+      discount?: number;
       paidAmount?: number;
       note?: string;
       items: Array<{
@@ -89,6 +91,7 @@ export class SalesService {
         warehouseId?: string;
         quantity: number;
         unitPrice?: number;
+        purchaseCost?: number;
       }>;
     },
   ) {
@@ -139,17 +142,24 @@ export class SalesService {
       }
     }
 
-    // 2. Calculate line totals and grand total accurately
+    // 2. Calculate line totals, purchase cost, and grand total accurately
     let totalAmount = 0;
+    let totalPurchaseCost = 0;
+
     const saleItemsData = data.items.map((item) => {
       const prod = productMap.get(item.productId)!;
       const unitPrice =
         item.unitPrice !== undefined && item.unitPrice >= 0
           ? Number(item.unitPrice)
           : Number(prod.sellingPrice);
-      const purchaseCost = Number(prod.costPrice || 0);
-      const lineTotal = unitPrice * item.quantity;
+      const purchaseCost =
+        item.purchaseCost !== undefined && item.purchaseCost >= 0
+          ? Number(item.purchaseCost)
+          : Number(prod.costPrice || 0);
+
+      const lineTotal = Number((unitPrice * item.quantity).toFixed(2));
       totalAmount += lineTotal;
+      totalPurchaseCost += Number((purchaseCost * item.quantity).toFixed(2));
 
       return {
         productId: item.productId,
@@ -161,15 +171,35 @@ export class SalesService {
       };
     });
 
+    const discount =
+      data.discount && data.discount > 0 ? Number(data.discount) : 0;
+    const netAmount = Math.max(0, totalAmount - discount);
+    const profit = Number((netAmount - totalPurchaseCost).toFixed(2));
+
     const paymentType = data.paymentType || "CASH";
     let paidAmount = 0;
     if (data.paidAmount !== undefined) {
       paidAmount = Number(data.paidAmount);
     } else {
-      paidAmount = paymentType === "CREDIT" ? 0 : totalAmount;
+      paidAmount = paymentType === "CREDIT" ? 0 : netAmount;
     }
-    const dueAmount = Math.max(0, totalAmount - paidAmount);
-    const referenceNumber = this.generateReferenceNumber();
+    const dueAmount = Math.max(0, netAmount - paidAmount);
+
+    const referenceNumber =
+      data.referenceNumber && data.referenceNumber.trim()
+        ? data.referenceNumber.trim()
+        : this.generateReferenceNumber();
+
+    const existingSale = await prisma.sale.findUnique({
+      where: { referenceNumber },
+    });
+    if (existingSale) {
+      throw new AppError(
+        `Invoice/Reference number "${referenceNumber}" already exists.`,
+        409,
+        "INVOICE_EXISTS",
+      );
+    }
 
     // 3. Atomically create sale in COMPLETED status and deduct inventory immediately
     return await prisma.$transaction(
@@ -184,8 +214,12 @@ export class SalesService {
             paymentType,
             status: SaleStatus.COMPLETED,
             totalAmount,
+            discount,
+            netAmount,
             paidAmount,
             dueAmount,
+            totalPurchaseCost,
+            profit,
             customerName,
             customerPhone,
             note: data.note?.trim() || null,
@@ -437,7 +471,13 @@ export class SalesService {
       where: { id },
       include: {
         customer: {
-          select: { id: true, name: true, phone: true, address: true, currentDue: true },
+          select: {
+            id: true,
+            name: true,
+            phone: true,
+            address: true,
+            currentDue: true,
+          },
         },
         warehouse: {
           select: { id: true, name: true },

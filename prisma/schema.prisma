@@ -125,14 +125,15 @@ model Product {
   name         String
   sku          String    @unique
   barcode      String?   @unique
-  categoryId   String
-  category     Category  @relation(fields: [categoryId], references: [id])
-  companyId    String?
-  company      Company?  @relation(fields: [companyId], references: [id])
-  unit         String    @default("piece")
-  dpRate       Decimal   @default(0.00) @db.Decimal(12, 2)
-  costPrice    Decimal   @default(0.00) @db.Decimal(12, 2)
-  sellingPrice Decimal   @default(0.00) @db.Decimal(12, 2)
+  categoryId        String?
+  category          Category? @relation(fields: [categoryId], references: [id])
+  companyId         String?
+  company           Company?  @relation(fields: [companyId], references: [id])
+  unit              String    @default("piece")
+  dpRate            Decimal   @default(0.00) @db.Decimal(12, 2)
+  commissionPercent Decimal   @default(0.00) @db.Decimal(5, 2)
+  costPrice         Decimal   @default(0.00) @db.Decimal(12, 2)
+  sellingPrice      Decimal   @default(0.00) @db.Decimal(12, 2)
   quantity     Int       @default(0)
   reorderLevel Int       @default(10)
   description  String?
@@ -245,11 +246,15 @@ model Sale {
   customer        Customer?  @relation(fields: [customerId], references: [id])
   status          SaleStatus @default(COMPLETED)
   paymentType     String     @default("CASH") // CASH, CREDIT
-  totalAmount     Decimal    @default(0.00) @db.Decimal(12, 2)
-  paidAmount      Decimal    @default(0.00) @db.Decimal(12, 2)
-  dueAmount       Decimal    @default(0.00) @db.Decimal(12, 2)
-  customerName    String?
-  customerPhone   String?
+  totalAmount       Decimal    @default(0.00) @db.Decimal(12, 2)
+  discount          Decimal    @default(0.00) @db.Decimal(12, 2)
+  netAmount         Decimal    @default(0.00) @db.Decimal(12, 2)
+  paidAmount        Decimal    @default(0.00) @db.Decimal(12, 2)
+  dueAmount         Decimal    @default(0.00) @db.Decimal(12, 2)
+  totalPurchaseCost Decimal    @default(0.00) @db.Decimal(12, 2)
+  profit            Decimal    @default(0.00) @db.Decimal(12, 2)
+  customerName      String?
+  customerPhone     String?
   note            String?
   warehouseId     String?
   warehouse       Warehouse? @relation(fields: [warehouseId], references: [id])

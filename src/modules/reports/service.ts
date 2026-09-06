@@ -115,7 +115,7 @@ export class ReportsService {
         id: p.id,
         name: p.name,
         sku: p.sku,
-        category: p.category.name,
+        category: p.category?.name || "General",
         unit: p.unit,
         currentQuantity: qty,
         reorderLevel: p.reorderLevel,
@@ -403,7 +403,8 @@ export class ReportsService {
       saleId: sale.id,
       date: sale.createdAt,
       status: sale.status,
-      customerName: sale.customer?.name || sale.customerName || "Walk-in Customer",
+      customerName:
+        sale.customer?.name || sale.customerName || "Walk-in Customer",
       customerPhone: sale.customer?.phone || sale.customerPhone || null,
       totalCost,
       totalSelling,
@@ -680,14 +681,8 @@ export class ReportsService {
       (acc, p) => acc + p.totalAmount,
       0,
     );
-    const totalPaidAmount = formatted.reduce(
-      (acc, p) => acc + p.paidAmount,
-      0,
-    );
-    const totalDueAmount = formatted.reduce(
-      (acc, p) => acc + p.dueAmount,
-      0,
-    );
+    const totalPaidAmount = formatted.reduce((acc, p) => acc + p.paidAmount, 0);
+    const totalDueAmount = formatted.reduce((acc, p) => acc + p.dueAmount, 0);
 
     return {
       summary: {
@@ -757,10 +752,7 @@ export class ReportsService {
       createdByName: e.createdBy.name,
     }));
 
-    const totalExpenseAmount = formatted.reduce(
-      (acc, e) => acc + e.amount,
-      0,
-    );
+    const totalExpenseAmount = formatted.reduce((acc, e) => acc + e.amount, 0);
 
     return {
       summary: {
@@ -862,7 +854,8 @@ export class ReportsService {
       accountsReceivable,
       accountsPayable,
       inventoryValuation,
-      netWorkingCapital: accountsReceivable + inventoryValuation - accountsPayable,
+      netWorkingCapital:
+        accountsReceivable + inventoryValuation - accountsPayable,
     };
   }
 }

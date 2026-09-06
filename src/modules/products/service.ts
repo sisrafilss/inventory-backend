@@ -143,8 +143,116 @@ export class ProductsService {
       ...product,
       costPrice: Number(product.costPrice),
       dpRate: Number(product.dpRate),
+      commissionPercent: Number(product.commissionPercent || 0),
       sellingPrice: Number(product.sellingPrice),
       stockStatus,
+    };
+  }
+
+  static async getProductByCode(code: string) {
+    const trimmed = code.trim();
+    if (!trimmed) {
+      throw new AppError("Product code is required.", 400, "INVALID_CODE");
+    }
+
+    const product = await prisma.product.findFirst({
+      where: {
+        OR: [
+          { sku: { equals: trimmed, mode: "insensitive" } },
+          { barcode: trimmed },
+        ],
+      },
+      include: {
+        category: {
+          select: { id: true, name: true, isActive: true },
+        },
+        company: {
+          select: { id: true, name: true, code: true, isActive: true },
+        },
+        warehouseStocks: {
+          include: {
+            warehouse: {
+              select: { id: true, name: true, isDefault: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!product) {
+      throw new AppError(`Product with code "${trimmed}" not found.`, 404, "PRODUCT_NOT_FOUND");
+    }
+
+    let stockStatus: "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK" = "IN_STOCK";
+    if (product.quantity <= 0) {
+      stockStatus = "OUT_OF_STOCK";
+    } else if (product.quantity <= product.reorderLevel) {
+      stockStatus = "LOW_STOCK";
+    }
+
+    return {
+      ...product,
+      costPrice: Number(product.costPrice),
+      dpRate: Number(product.dpRate),
+      commissionPercent: Number(product.commissionPercent || 0),
+      sellingPrice: Number(product.sellingPrice),
+      stockStatus,
+    };
+  }
+
+  static async updateSaleRate(
+    actorId: string,
+    data: { code?: string; id?: string; saleRate: number },
+  ) {
+    let product = null;
+
+    if (data.id) {
+      product = await prisma.product.findUnique({ where: { id: data.id } });
+    } else if (data.code) {
+      const trimmed = data.code.trim();
+      product = await prisma.product.findFirst({
+        where: {
+          OR: [
+            { sku: { equals: trimmed, mode: "insensitive" } },
+            { barcode: trimmed },
+          ],
+        },
+      });
+    }
+
+    if (!product) {
+      throw new AppError("Product not found to update sale rate.", 404, "PRODUCT_NOT_FOUND");
+    }
+
+    const prevSaleRate = Number(product.sellingPrice);
+    const updated = await prisma.product.update({
+      where: { id: product.id },
+      data: { sellingPrice: data.saleRate },
+      include: {
+        company: { select: { id: true, name: true } },
+        category: { select: { id: true, name: true } },
+      },
+    });
+
+    await logAudit({
+      actorId,
+      action: "UPDATE_SALE_RATE",
+      entityType: "Product",
+      entityId: product.id,
+      metadata: {
+        productSku: product.sku,
+        productName: product.name,
+        previousSaleRate: prevSaleRate,
+        newSaleRate: data.saleRate,
+      },
+    });
+
+    return {
+      ...updated,
+      costPrice: Number(updated.costPrice),
+      dpRate: Number(updated.dpRate),
+      commissionPercent: Number(updated.commissionPercent || 0),
+      sellingPrice: Number(updated.sellingPrice),
     };
   }
 
@@ -154,12 +262,13 @@ export class ProductsService {
       name: string;
       sku: string;
       barcode?: string | null;
-      categoryId: string;
+      categoryId?: string | null;
       companyId?: string | null;
-      unit: string;
+      unit?: string;
       dpRate?: number;
-      costPrice: number;
-      sellingPrice: number;
+      commissionPercent?: number;
+      costPrice?: number;
+      sellingPrice?: number;
       quantity?: number;
       reorderLevel?: number;
       description?: string;
@@ -193,24 +302,26 @@ export class ProductsService {
       }
     }
 
-    const category = await prisma.category.findUnique({
-      where: { id: data.categoryId },
-    });
+    if (data.categoryId) {
+      const category = await prisma.category.findUnique({
+        where: { id: data.categoryId },
+      });
 
-    if (!category) {
-      throw new AppError(
-        "The specified category does not exist.",
-        404,
-        "CATEGORY_NOT_FOUND",
-      );
-    }
+      if (!category) {
+        throw new AppError(
+          "The specified category does not exist.",
+          404,
+          "CATEGORY_NOT_FOUND",
+        );
+      }
 
-    if (!category.isActive) {
-      throw new AppError(
-        "Cannot create a product in an inactive category.",
-        400,
-        "CATEGORY_INACTIVE",
-      );
+      if (!category.isActive) {
+        throw new AppError(
+          "Cannot create a product in an inactive category.",
+          400,
+          "CATEGORY_INACTIVE",
+        );
+      }
     }
 
     if (data.companyId) {
@@ -235,16 +346,17 @@ export class ProductsService {
           name: data.name.trim(),
           sku,
           barcode: data.barcode && data.barcode.trim() ? data.barcode.trim() : null,
-          categoryId: data.categoryId,
+          categoryId: data.categoryId || null,
           companyId: data.companyId || null,
-          unit: data.unit.trim().toLowerCase(),
+          unit: data.unit ? data.unit.trim() : "Pieces",
           dpRate: data.dpRate || 0,
-          costPrice: data.costPrice,
-          sellingPrice: data.sellingPrice,
+          commissionPercent: data.commissionPercent || 0,
+          costPrice: data.costPrice || 0,
+          sellingPrice: data.sellingPrice || 0,
           quantity: initialQty,
           reorderLevel:
             data.reorderLevel !== undefined ? data.reorderLevel : 10,
-          description: data.description?.trim(),
+          description: data.description?.trim() || "None",
           isActive: data.isActive !== undefined ? data.isActive : true,
         },
       });
