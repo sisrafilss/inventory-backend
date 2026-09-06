@@ -182,37 +182,78 @@ export class InventoryService {
     };
   }
 
-  static async getInventoryOverview() {
-    const products = await prisma.product.findMany({
-      where: { isActive: true },
-      include: {
-        category: {
-          select: { id: true, name: true },
-        },
-      },
-    });
+  static async getInventoryOverview(query?: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    categoryId?: string;
+  }) {
+    const page = query?.page && query.page > 0 ? query.page : 1;
+    const limit = query?.limit && query.limit > 0 ? query.limit : 20;
+    const skip = (page - 1) * limit;
 
-    let totalQuantity = 0;
-    let totalCostValue = 0;
-    let totalRetailValue = 0;
-    let lowStockCount = 0;
-    let outOfStockCount = 0;
+    const where: Prisma.ProductWhereInput = { isActive: true };
+
+    if (query?.categoryId) {
+      where.categoryId = query.categoryId;
+    }
+
+    if (query?.search && query.search.trim()) {
+      const s = query.search.trim();
+      where.OR = [
+        { name: { contains: s, mode: "insensitive" } },
+        { sku: { contains: s, mode: "insensitive" } },
+        { barcode: { contains: s, mode: "insensitive" } },
+      ];
+    }
+
+    const [totalProducts, outOfStockCount, aggregates, totalFiltered, products] = await Promise.all([
+      prisma.product.count({ where: { isActive: true } }),
+      prisma.product.count({ where: { isActive: true, quantity: { lte: 0 } } }),
+      prisma.$queryRaw<Array<{
+        totalQuantity: number | bigint | null;
+        totalCostValue: number | null;
+        totalRetailValue: number | null;
+        lowStockCount: number | bigint | null;
+      }>>`
+        SELECT 
+          COALESCE(SUM(quantity), 0) AS "totalQuantity",
+          COALESCE(SUM(quantity * "costPrice"), 0) AS "totalCostValue",
+          COALESCE(SUM(quantity * "sellingPrice"), 0) AS "totalRetailValue",
+          COUNT(CASE WHEN quantity > 0 AND quantity <= "reorderLevel" THEN 1 END) AS "lowStockCount"
+        FROM "Product"
+        WHERE "isActive" = true
+      `,
+      prisma.product.count({ where }),
+      prisma.product.findMany({
+        where,
+        skip,
+        take: limit,
+        orderBy: { name: "asc" },
+        include: {
+          category: {
+            select: { id: true, name: true },
+          },
+        },
+      }),
+    ]);
+
+    const agg = aggregates[0] || {
+      totalQuantity: 0,
+      totalCostValue: 0,
+      totalRetailValue: 0,
+      lowStockCount: 0,
+    };
 
     const formattedProducts = products.map((p) => {
       const qty = p.quantity;
       const cost = Number(p.costPrice);
       const selling = Number(p.sellingPrice);
 
-      totalQuantity += qty;
-      totalCostValue += qty * cost;
-      totalRetailValue += qty * selling;
-
       let stockStatus: "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK" = "IN_STOCK";
       if (qty <= 0) {
-        outOfStockCount++;
         stockStatus = "OUT_OF_STOCK";
       } else if (qty <= p.reorderLevel) {
-        lowStockCount++;
         stockStatus = "LOW_STOCK";
       }
 
@@ -227,14 +268,20 @@ export class InventoryService {
 
     return {
       summary: {
-        totalProducts: products.length,
-        totalQuantity,
-        totalCostValue: totalCostValue.toFixed(2),
-        totalRetailValue: totalRetailValue.toFixed(2),
-        lowStockCount,
+        totalProducts,
+        totalQuantity: Number(agg.totalQuantity || 0),
+        totalCostValue: Number(agg.totalCostValue || 0).toFixed(2),
+        totalRetailValue: Number(agg.totalRetailValue || 0).toFixed(2),
+        lowStockCount: Number(agg.lowStockCount || 0),
         outOfStockCount,
       },
       products: formattedProducts,
+      meta: {
+        page,
+        limit,
+        total: totalFiltered,
+        totalPages: Math.ceil(totalFiltered / limit),
+      },
     };
   }
 }

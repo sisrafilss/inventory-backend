@@ -52,7 +52,19 @@ export class InventoryController {
 
   static async getOverview(req: Request, res: Response, next: NextFunction) {
     try {
-      const overview = await InventoryService.getInventoryOverview();
+      const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
+      const limit = req.query.limit
+        ? parseInt(req.query.limit as string, 10)
+        : 20;
+      const search = req.query.search as string;
+      const categoryId = req.query.categoryId as string;
+
+      const overview = await InventoryService.getInventoryOverview({
+        page,
+        limit,
+        search,
+        categoryId,
+      });
       return sendSuccess(res, overview);
     } catch (error) {
       next(error);
