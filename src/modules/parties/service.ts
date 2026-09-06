@@ -5,7 +5,11 @@ import { Prisma } from "@prisma/client";
 
 export class PartiesService {
   // ================= SUPPLIERS =================
-  static async listSuppliers(query: { search?: string; isActive?: boolean; hasDue?: boolean }) {
+  static async listSuppliers(query: {
+    search?: string;
+    isActive?: boolean;
+    hasDue?: boolean;
+  }) {
     const where: Prisma.SupplierWhereInput = {};
 
     if (query.isActive !== undefined) {
@@ -99,7 +103,11 @@ export class PartiesService {
       action: "SUPPLIER_CREATED",
       entityType: "Supplier",
       entityId: supplier.id,
-      metadata: { name: supplier.name, phone: supplier.phone, currentDue: supplier.currentDue },
+      metadata: {
+        name: supplier.name,
+        phone: supplier.phone,
+        currentDue: supplier.currentDue,
+      },
     });
 
     return supplier;
@@ -185,7 +193,11 @@ export class PartiesService {
   }
 
   // ================= CUSTOMERS =================
-  static async listCustomers(query: { search?: string; isActive?: boolean; hasDue?: boolean }) {
+  static async listCustomers(query: {
+    search?: string;
+    isActive?: boolean;
+    hasDue?: boolean;
+  }) {
     const where: Prisma.CustomerWhereInput = {};
 
     if (query.isActive !== undefined) {
@@ -214,6 +226,67 @@ export class PartiesService {
         },
       },
     });
+  }
+
+  static async getCustomerByCode(code: string) {
+    const trimmed = code.trim();
+    if (!trimmed) {
+      throw new AppError("Customer ID is required.", 400, "INVALID_CODE");
+    }
+
+    const cleanDigits = trimmed.replace(/[^0-9]/g, "");
+
+    // 1. Try finding by UUID, UUID prefix, exact phone, clean phone, or name
+    let customer = await prisma.customer.findFirst({
+      where: {
+        OR: [
+          { id: { equals: trimmed, mode: "insensitive" } },
+          { id: { startsWith: trimmed, mode: "insensitive" } },
+          { phone: { equals: trimmed, mode: "insensitive" } },
+          ...(cleanDigits.length >= 4
+            ? [
+                {
+                  phone: {
+                    contains: cleanDigits,
+                    mode: "insensitive" as const,
+                  },
+                },
+              ]
+            : []),
+          { name: { equals: trimmed, mode: "insensitive" } },
+          { name: { startsWith: trimmed, mode: "insensitive" } },
+        ],
+      },
+    });
+
+    // 2. If not found and input is an integer (e.g. 1, 2, 3...), lookup by sequential order
+    if (!customer) {
+      const num = parseInt(trimmed, 10);
+      if (!isNaN(num) && num > 0 && String(num) === trimmed) {
+        const sequential = await prisma.customer.findMany({
+          orderBy: { createdAt: "asc" },
+          skip: num - 1,
+          take: 1,
+        });
+        if (sequential.length > 0) {
+          customer = sequential[0];
+        }
+      }
+    }
+
+    if (!customer) {
+      throw new AppError(
+        `Customer "${trimmed}" not found in database.`,
+        404,
+        "CUSTOMER_NOT_FOUND",
+      );
+    }
+
+    return {
+      ...customer,
+      openingDue: Number(customer.openingDue),
+      currentDue: Number(customer.currentDue),
+    };
   }
 
   static async getCustomerById(id: string) {
@@ -277,7 +350,11 @@ export class PartiesService {
       action: "CUSTOMER_CREATED",
       entityType: "Customer",
       entityId: customer.id,
-      metadata: { name: customer.name, phone: customer.phone, currentDue: customer.currentDue },
+      metadata: {
+        name: customer.name,
+        phone: customer.phone,
+        currentDue: customer.currentDue,
+      },
     });
 
     return customer;

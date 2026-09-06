@@ -49,6 +49,7 @@ router.get(
   validateRequest(listPartiesSchema),
   PartiesController.listCustomers,
 );
+router.get("/customers/by-code/:code", PartiesController.getCustomerByCode);
 router.get("/customers/:id", PartiesController.getCustomerById);
 router.post(
   "/customers",
