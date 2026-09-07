@@ -769,93 +769,224 @@ export class ReportsService {
   }
 
   static async getBalanceSheet(
-    query: { startDate?: string; endDate?: string },
+    query: { startDate?: string; endDate?: string; filterType?: string; warehouseId?: string },
     userRole: Role,
   ) {
-    if (userRole === Role.MANAGER) {
-      throw new Error("FORBIDDEN_BALANCE_SHEET");
-    }
-
     const dateFilter: Prisma.DateTimeFilter = {};
+    let startDateTime: Date | null = null;
+    let endDateTime: Date | null = null;
+
     if (query.startDate) {
-      dateFilter.gte = new Date(query.startDate);
+      startDateTime = new Date(query.startDate);
+      startDateTime.setHours(0, 0, 0, 0);
+      dateFilter.gte = startDateTime;
     }
     if (query.endDate) {
-      const end = new Date(query.endDate);
-      end.setHours(23, 59, 59, 999);
-      dateFilter.lte = end;
+      endDateTime = new Date(query.endDate);
+      endDateTime.setHours(23, 59, 59, 999);
+      dateFilter.lte = endDateTime;
     }
 
-    const hasDate = query.startDate || query.endDate;
+    const hasDate = Boolean(query.startDate || query.endDate);
 
-    // 1. Completed Sales & COGS
-    const sales = await prisma.sale.findMany({
-      where: {
-        status: SaleStatus.COMPLETED,
-        ...(hasDate ? { createdAt: dateFilter } : {}),
-      },
-      include: {
-        items: true,
-      },
-    });
+    // 1. Completed Sales & COGS in date range
+    const saleWhere: Prisma.SaleWhereInput = {
+      status: SaleStatus.COMPLETED,
+      ...(hasDate ? { createdAt: dateFilter } : {}),
+      ...(query.warehouseId ? { warehouseId: query.warehouseId } : {}),
+    };
 
-    let totalRevenue = 0;
+    const [sales, purchases, expenses, storeSetting, allProducts, stockMovements] =
+      await Promise.all([
+        prisma.sale.findMany({
+          where: saleWhere,
+          include: {
+            items: true,
+          },
+        }),
+        prisma.purchase.findMany({
+          where: {
+            ...(hasDate ? { createdAt: dateFilter } : {}),
+          },
+          include: {
+            items: true,
+          },
+        }),
+        prisma.expense.findMany({
+          where: hasDate ? { date: dateFilter } : {},
+        }),
+        prisma.storeSetting.findFirst(),
+        prisma.product.findMany({
+          select: {
+            id: true,
+            costPrice: true,
+            quantity: true,
+            warehouseStocks: query.warehouseId
+              ? { where: { warehouseId: query.warehouseId } }
+              : true,
+          },
+        }),
+        // Fetch stock movements after startDateTime to calculate opening stock
+        startDateTime
+          ? prisma.stockMovement.findMany({
+              where: {
+                createdAt: { gte: startDateTime },
+              },
+              select: {
+                productId: true,
+                quantityChange: true,
+                createdAt: true,
+              },
+            })
+          : Promise.resolve([]),
+      ]);
+
+    // 2. Aggregate Sales & COGS
+    let totalSale = 0;
     let costOfGoodsSold = 0;
-
     for (const sale of sales) {
-      totalRevenue += Number(sale.totalAmount);
+      totalSale += Number(sale.totalAmount);
       for (const item of sale.items) {
         costOfGoodsSold += Number(item.purchaseCost || 0) * item.quantity;
       }
     }
 
-    const grossProfit = totalRevenue - costOfGoodsSold;
+    // 3. Aggregate Purchases
+    let totalPurchase = 0;
+    for (const purchase of purchases) {
+      totalPurchase += Number(purchase.totalAmount);
+    }
 
-    // 2. Expenses / Daily Costs
-    const expenses = await prisma.expense.findMany({
-      where: hasDate ? { date: dateFilter } : {},
-    });
+    // 4. Aggregate Expenses
+    const totalExpenses = expenses.reduce((acc, e) => acc + Number(e.amount), 0);
 
-    const totalExpenses = expenses.reduce(
-      (acc, e) => acc + Number(e.amount),
-      0,
-    );
+    // 5. Present Stock (Closing stock valuation as of endDate)
+    // Map current product stocks
+    const productQtyMap = new Map<string, number>();
+    for (const p of allProducts) {
+      let qty = 0;
+      if (query.warehouseId) {
+        qty = p.warehouseStocks.reduce((sum, ws) => sum + ws.quantity, 0);
+      } else {
+        qty = p.quantity;
+      }
+      productQtyMap.set(p.id, Math.max(0, qty));
+    }
 
-    const netOperatingIncome = grossProfit - totalExpenses;
+    // If endDate is in the past, unwind stock movements after endDate
+    if (endDateTime && endDateTime < new Date()) {
+      for (const sm of stockMovements) {
+        if (sm.createdAt > endDateTime) {
+          const cur = productQtyMap.get(sm.productId) || 0;
+          productQtyMap.set(sm.productId, cur - sm.quantityChange);
+        }
+      }
+    }
 
-    // 3. Customer Receivables & Supplier Payables (Current Outstanding)
-    const [customers, suppliers, products] = await Promise.all([
+    let presentStock = 0;
+    for (const p of allProducts) {
+      const q = Math.max(0, productQtyMap.get(p.id) || 0);
+      presentStock += q * Number(p.costPrice);
+    }
+
+    // 6. Previous Stock (Opening stock valuation as of startDate)
+    let previousStock = 0;
+    if (!startDateTime) {
+      // All time -> opening stock was 0
+      previousStock = 0;
+    } else {
+      // Unwind all stock movements between startDate and now/endDate
+      const startQtyMap = new Map(productQtyMap);
+      for (const sm of stockMovements) {
+        if (sm.createdAt >= startDateTime && (!endDateTime || sm.createdAt <= endDateTime)) {
+          const cur = startQtyMap.get(sm.productId) || 0;
+          startQtyMap.set(sm.productId, cur - sm.quantityChange);
+        }
+      }
+      for (const p of allProducts) {
+        const q = Math.max(0, startQtyMap.get(p.id) || 0);
+        previousStock += q * Number(p.costPrice);
+      }
+    }
+
+    // Round to 2 decimals
+    const round = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
+
+    previousStock = round(previousStock);
+    totalPurchase = round(totalPurchase);
+    totalSale = round(totalSale);
+    presentStock = round(presentStock);
+
+    // 7. Balance Sheet Totals & Trading Result
+    const debitTotal = round(previousStock + totalPurchase);
+    const creditTotal = round(totalSale + presentStock);
+
+    const diff = round(creditTotal - debitTotal);
+    const isProfit = diff >= 0;
+    const profit = isProfit ? diff : 0;
+    const loss = !isProfit ? Math.abs(diff) : 0;
+    const balancedTotal = Math.max(debitTotal, creditTotal);
+
+    // 8. Account Receivables & Payables
+    const [customers, suppliers] = await Promise.all([
       prisma.customer.findMany({ select: { currentDue: true } }),
       prisma.supplier.findMany({ select: { currentDue: true } }),
-      prisma.product.findMany({ select: { quantity: true, costPrice: true } }),
     ]);
-
-    const accountsReceivable = customers.reduce(
-      (acc, c) => acc + Number(c.currentDue),
-      0,
+    const accountsReceivable = round(
+      customers.reduce((acc, c) => acc + Number(c.currentDue), 0),
     );
-    const accountsPayable = suppliers.reduce(
-      (acc, s) => acc + Number(s.currentDue),
-      0,
+    const accountsPayable = round(
+      suppliers.reduce((acc, s) => acc + Number(s.currentDue), 0),
     );
 
-    // 4. Inventory Valuation
-    const inventoryValuation = products.reduce((acc, p) => {
-      const qty = Math.max(0, p.quantity);
-      return acc + qty * Number(p.costPrice);
-    }, 0);
+    const grossProfit = round(totalSale - costOfGoodsSold);
+    const netOperatingIncome = round(grossProfit - totalExpenses);
 
     return {
-      revenue: totalRevenue,
-      cogs: costOfGoodsSold,
-      grossProfit,
-      operatingExpenses: totalExpenses,
-      netOperatingIncome,
-      accountsReceivable,
-      accountsPayable,
-      inventoryValuation,
-      netWorkingCapital:
-        accountsReceivable + inventoryValuation - accountsPayable,
+      particulars: {
+        previousStock,
+        totalPurchase,
+        totalSale,
+        presentStock,
+        debitTotal,
+        creditTotal,
+        profit,
+        loss,
+        isProfit,
+        balancedTotal,
+      },
+      summary: {
+        revenue: totalSale,
+        cogs: round(costOfGoodsSold),
+        grossProfit,
+        operatingExpenses: round(totalExpenses),
+        netOperatingIncome,
+        accountsReceivable,
+        accountsPayable,
+        inventoryValuation: presentStock,
+        netWorkingCapital: round(
+          accountsReceivable + presentStock - accountsPayable,
+        ),
+        salesCount: sales.length,
+        purchasesCount: purchases.length,
+        expensesCount: expenses.length,
+      },
+      dateRange: {
+        startDate: query.startDate || null,
+        endDate: query.endDate || null,
+        filterType: query.filterType || "Date Wise",
+      },
+      storeInfo: {
+        storeName: storeSetting?.storeName || "M.R. Enterprise & Wholesale Trading",
+        proprietor: storeSetting?.proprietor || "Haji Mohammad Israfil",
+        phone: storeSetting?.phone || "+880 1711-234567",
+        address:
+          storeSetting?.address ||
+          "Holding 14, Tejgaon Industrial Area, Dhaka-1208, Bangladesh",
+        memoFooterNote:
+          storeSetting?.memoFooterNote ||
+          "ধন্যবাদ, আবার আসবেন! মাল বুঝে নিয়ে ক্যাশ মেমো চেক করুন।",
+      },
     };
   }
 }

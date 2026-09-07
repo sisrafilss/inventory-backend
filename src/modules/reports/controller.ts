@@ -202,6 +202,8 @@ export class ReportsController {
         {
           startDate: req.query.startDate as string,
           endDate: req.query.endDate as string,
+          filterType: req.query.filterType as string,
+          warehouseId: req.query.warehouseId as string,
         },
         req.user!.role,
       );
@@ -210,7 +212,7 @@ export class ReportsController {
       if (error.message === "FORBIDDEN_BALANCE_SHEET") {
         return res
           .status(403)
-          .json({ success: false, message: "Forbidden: Only Admin and Super Admin can view Balance Sheet." });
+          .json({ success: false, message: "Forbidden: Only Admin, Super Admin and Manager can view Balance Sheet." });
       }
       next(error);
     }

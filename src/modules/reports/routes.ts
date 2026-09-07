@@ -26,7 +26,7 @@ router.get(
 );
 router.get(
   "/balance-sheet",
-  requireRoles(Role.SUPER_ADMIN, Role.ADMIN),
+  requireRoles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER),
   ReportsController.getBalanceSheet,
 );
 
