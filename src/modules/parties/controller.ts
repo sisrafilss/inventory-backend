@@ -104,6 +104,19 @@ export class PartiesController {
     }
   }
 
+  static async getSupplierByCode(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const supplier = await PartiesService.getSupplierByCode(req.params.code);
+      return sendSuccess(res, supplier);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async getCustomerById(
     req: Request,
     res: Response,

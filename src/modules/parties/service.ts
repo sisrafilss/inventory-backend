@@ -289,6 +289,69 @@ export class PartiesService {
     };
   }
 
+  static async getSupplierByCode(code: string) {
+    const trimmed = code.trim();
+    if (!trimmed) {
+      throw new AppError("Supplier ID is required.", 400, "INVALID_CODE");
+    }
+
+    const cleanDigits = trimmed.replace(/[^0-9]/g, "");
+
+    // 1. Try finding by UUID, UUID prefix, exact phone, clean phone, name, or companyName
+    let supplier = await prisma.supplier.findFirst({
+      where: {
+        OR: [
+          { id: { equals: trimmed, mode: "insensitive" } },
+          { id: { startsWith: trimmed, mode: "insensitive" } },
+          { phone: { equals: trimmed, mode: "insensitive" } },
+          ...(cleanDigits.length >= 4
+            ? [
+                {
+                  phone: {
+                    contains: cleanDigits,
+                    mode: "insensitive" as const,
+                  },
+                },
+              ]
+            : []),
+          { name: { equals: trimmed, mode: "insensitive" } },
+          { name: { startsWith: trimmed, mode: "insensitive" } },
+          { companyName: { equals: trimmed, mode: "insensitive" } },
+          { companyName: { startsWith: trimmed, mode: "insensitive" } },
+        ],
+      },
+    });
+
+    // 2. If not found and input is an integer (e.g. 1, 2, 3...), lookup by sequential order
+    if (!supplier) {
+      const num = parseInt(trimmed, 10);
+      if (!isNaN(num) && num > 0 && String(num) === trimmed) {
+        const sequential = await prisma.supplier.findMany({
+          orderBy: { createdAt: "asc" },
+          skip: num - 1,
+          take: 1,
+        });
+        if (sequential.length > 0) {
+          supplier = sequential[0];
+        }
+      }
+    }
+
+    if (!supplier) {
+      throw new AppError(
+        `Supplier "${trimmed}" not found in database.`,
+        404,
+        "SUPPLIER_NOT_FOUND",
+      );
+    }
+
+    return {
+      ...supplier,
+      openingDue: Number(supplier.openingDue),
+      currentDue: Number(supplier.currentDue),
+    };
+  }
+
   static async getCustomerById(id: string) {
     const customer = await prisma.customer.findUnique({
       where: { id },

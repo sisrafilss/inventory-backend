@@ -3,10 +3,22 @@ import { PaymentsService } from "./service.js";
 import { sendSuccess } from "../../utils/apiResponse.js";
 
 export class PaymentsController {
-  static async collectFromCustomer(req: Request, res: Response, next: NextFunction) {
+  static async collectFromCustomer(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
     try {
-      const payment = await PaymentsService.collectFromCustomer(req.user!.id, req.body);
-      return sendSuccess(res, payment, "Payment collection recorded successfully.", 201);
+      const payment = await PaymentsService.collectFromCustomer(
+        req.user!.id,
+        req.body,
+      );
+      return sendSuccess(
+        res,
+        payment,
+        "Payment collection recorded successfully.",
+        201,
+      );
     } catch (error) {
       next(error);
     }
@@ -14,8 +26,16 @@ export class PaymentsController {
 
   static async payToSupplier(req: Request, res: Response, next: NextFunction) {
     try {
-      const payment = await PaymentsService.payToSupplier(req.user!.id, req.body);
-      return sendSuccess(res, payment, "Supplier payment recorded successfully.", 201);
+      const payment = await PaymentsService.payToSupplier(
+        req.user!.id,
+        req.body,
+      );
+      return sendSuccess(
+        res,
+        payment,
+        "Supplier payment recorded successfully.",
+        201,
+      );
     } catch (error) {
       next(error);
     }
@@ -24,7 +44,9 @@ export class PaymentsController {
   static async listPayments(req: Request, res: Response, next: NextFunction) {
     try {
       const page = req.query.page ? parseInt(req.query.page as string, 10) : 1;
-      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 20;
+      const limit = req.query.limit
+        ? parseInt(req.query.limit as string, 10)
+        : 20;
       const result = await PaymentsService.listPayments({
         page,
         limit,
@@ -48,6 +70,54 @@ export class PaymentsController {
     try {
       const payment = await PaymentsService.getPaymentById(req.params.id);
       return sendSuccess(res, payment);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getByTransaction(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const payment = await PaymentsService.getByTransaction(
+        req.params.transactionId,
+      );
+      return sendSuccess(res, payment);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async updatePayment(req: Request, res: Response, next: NextFunction) {
+    try {
+      const payment = await PaymentsService.updatePayment(
+        req.params.id,
+        req.user!.id,
+        req.body,
+      );
+      return sendSuccess(
+        res,
+        payment,
+        "Payment transaction updated successfully.",
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async deletePayment(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await PaymentsService.deletePayment(
+        req.params.id,
+        req.user!.id,
+      );
+      return sendSuccess(
+        res,
+        result,
+        "Payment transaction deleted successfully.",
+      );
     } catch (error) {
       next(error);
     }

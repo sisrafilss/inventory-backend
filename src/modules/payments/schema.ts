@@ -4,8 +4,11 @@ export const collectFromCustomerSchema = z.object({
   body: z.object({
     customerId: z.string().uuid("Invalid customer ID"),
     amount: z.number().positive("Amount must be greater than 0"),
-    paymentMethod: z.enum(["CASH", "BANK", "BKASH", "NAGAD", "CHEQUE"]).default("CASH"),
+    paymentMethod: z
+      .enum(["CASH", "BANK", "BANK_TRANSFER", "BKASH", "NAGAD", "CHEQUE"])
+      .default("CASH"),
     referenceNote: z.string().max(500).optional(),
+    date: z.string().optional(),
   }),
 });
 
@@ -13,8 +16,25 @@ export const payToSupplierSchema = z.object({
   body: z.object({
     supplierId: z.string().uuid("Invalid supplier ID"),
     amount: z.number().positive("Amount must be greater than 0"),
-    paymentMethod: z.enum(["CASH", "BANK", "BKASH", "NAGAD", "CHEQUE"]).default("CASH"),
+    paymentMethod: z
+      .enum(["CASH", "BANK", "BANK_TRANSFER", "BKASH", "NAGAD", "CHEQUE"])
+      .default("CASH"),
     referenceNote: z.string().max(500).optional(),
+    date: z.string().optional(),
+  }),
+});
+
+export const updatePaymentSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid payment ID"),
+  }),
+  body: z.object({
+    amount: z.number().positive("Amount must be greater than 0").optional(),
+    paymentMethod: z
+      .enum(["CASH", "BANK", "BANK_TRANSFER", "BKASH", "NAGAD", "CHEQUE"])
+      .optional(),
+    referenceNote: z.string().max(500).optional(),
+    date: z.string().optional(),
   }),
 });
 

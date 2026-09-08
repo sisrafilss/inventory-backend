@@ -24,6 +24,7 @@ router.get(
   validateRequest(listPartiesSchema),
   PartiesController.listSuppliers,
 );
+router.get("/suppliers/by-code/:code", PartiesController.getSupplierByCode);
 router.get("/suppliers/:id", PartiesController.getSupplierById);
 router.post(
   "/suppliers",
