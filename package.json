@@ -16,7 +16,13 @@
     "seed": "tsx prisma/seed.ts",
     "test": "vitest run --test-timeout=30000 --hook-timeout=30000"
   },
-  "keywords": ["inventory", "express", "typescript", "prisma", "postgresql"],
+  "keywords": [
+    "inventory",
+    "express",
+    "typescript",
+    "prisma",
+    "postgresql"
+  ],
   "author": "Israfil Hossen",
   "license": "ISC",
   "dependencies": {
@@ -36,11 +42,12 @@
     "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^20.17.6",
     "@types/supertest": "^6.0.2",
+    "localtunnel": "^2.0.2",
     "prisma": "^5.22.0",
     "supertest": "^7.0.0",
     "tsx": "^4.19.2",
     "typescript": "^5.6.3",
+    "untun": "^0.2.2",
     "vitest": "^2.1.4"
   }
 }
-
