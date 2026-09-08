@@ -10,7 +10,10 @@ export class ProductsController {
         ? parseInt(req.query.limit as string, 10)
         : 20;
       const search = req.query.search as string;
+      const code = req.query.code as string;
+      const name = req.query.name as string;
       const categoryId = req.query.categoryId as string;
+      const companyId = req.query.companyId as string;
       const isActive =
         req.query.isActive !== undefined
           ? req.query.isActive === "true"
@@ -25,7 +28,10 @@ export class ProductsController {
         page,
         limit,
         search,
+        code,
+        name,
         categoryId,
+        companyId,
         isActive,
         stockStatus,
       });

@@ -5,13 +5,27 @@ export const createProductSchema = z.object({
     name: z.string().min(2, "Product name must be at least 2 characters"),
     sku: z.string().min(2, "SKU must be at least 2 characters").toUpperCase(),
     barcode: z.string().max(50).optional().nullable(),
-    categoryId: z.string().uuid("Valid category ID required").optional().nullable(),
-    companyId: z.string().uuid("Valid company ID required").optional().nullable(),
+    categoryId: z
+      .string()
+      .uuid("Valid category ID required")
+      .optional()
+      .nullable(),
+    companyId: z
+      .string()
+      .uuid("Valid company ID required")
+      .optional()
+      .nullable(),
     unit: z.string().min(1, "Unit is required").default("Pieces"),
     dpRate: z.number().min(0, "DP Rate cannot be negative").default(0),
-    commissionPercent: z.number().min(0, "Commission cannot be negative").default(0),
+    commissionPercent: z
+      .number()
+      .min(0, "Commission cannot be negative")
+      .default(0),
     costPrice: z.number().min(0, "Cost price cannot be negative").default(0),
-    sellingPrice: z.number().min(0, "Selling price cannot be negative").default(0),
+    sellingPrice: z
+      .number()
+      .min(0, "Selling price cannot be negative")
+      .default(0),
     quantity: z
       .number()
       .int()
@@ -52,6 +66,8 @@ export const listProductsSchema = z.object({
     page: z.string().optional(),
     limit: z.string().optional(),
     search: z.string().optional(),
+    code: z.string().optional(),
+    name: z.string().optional(),
     categoryId: z.string().optional(),
     companyId: z.string().optional(),
     warehouseId: z.string().optional(),
@@ -63,12 +79,13 @@ export const listProductsSchema = z.object({
 });
 
 export const updateSaleRateSchema = z.object({
-  body: z.object({
-    code: z.string().optional(),
-    id: z.string().uuid().optional(),
-    saleRate: z.number().min(0, "Sale rate must be a non-negative number"),
-  }).refine((data) => data.code || data.id, {
-    message: "Either product code or product ID must be provided",
-  }),
+  body: z
+    .object({
+      code: z.string().optional(),
+      id: z.string().uuid().optional(),
+      saleRate: z.number().min(0, "Sale rate must be a non-negative number"),
+    })
+    .refine((data) => data.code || data.id, {
+      message: "Either product code or product ID must be provided",
+    }),
 });
-

@@ -8,7 +8,10 @@ export class ProductsService {
     page?: number;
     limit?: number;
     search?: string;
+    code?: string;
+    name?: string;
     categoryId?: string;
+    companyId?: string;
     isActive?: boolean;
     stockStatus?: "ALL" | "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK";
   }) {
@@ -22,25 +25,51 @@ export class ProductsService {
       where.categoryId = query.categoryId;
     }
 
-    if ((query as any).companyId) {
-      where.companyId = (query as any).companyId;
+    if (query.companyId) {
+      where.companyId = query.companyId;
     }
 
     if (query.isActive !== undefined) {
       where.isActive = query.isActive;
     }
 
-    if (query.search && query.search.trim()) {
-      const search = query.search.trim();
-      where.OR = [
-        { name: { contains: search, mode: "insensitive" } },
-        { sku: { contains: search, mode: "insensitive" } },
-        { barcode: { contains: search, mode: "insensitive" } },
-      ];
+    if (query.stockStatus === "IN_STOCK") {
+      where.quantity = { gt: 0 };
+    } else if (query.stockStatus === "OUT_OF_STOCK") {
+      where.quantity = { lte: 0 };
     }
 
-    if (query.stockStatus === "OUT_OF_STOCK") {
-      where.quantity = { lte: 0 };
+    const andConditions: Prisma.ProductWhereInput[] = [];
+
+    if (query.search && query.search.trim()) {
+      const search = query.search.trim();
+      andConditions.push({
+        OR: [
+          { name: { contains: search, mode: "insensitive" } },
+          { sku: { contains: search, mode: "insensitive" } },
+          { barcode: { contains: search, mode: "insensitive" } },
+        ],
+      });
+    }
+
+    if (query.code && query.code.trim()) {
+      const code = query.code.trim();
+      andConditions.push({
+        OR: [
+          { sku: { contains: code, mode: "insensitive" } },
+          { barcode: { contains: code, mode: "insensitive" } },
+        ],
+      });
+    }
+
+    if (query.name && query.name.trim()) {
+      andConditions.push({
+        name: { contains: query.name.trim(), mode: "insensitive" },
+      });
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
     }
 
     const [total, products] = await Promise.all([
@@ -81,6 +110,7 @@ export class ProductsService {
         ...p,
         costPrice: Number(p.costPrice),
         dpRate: Number(p.dpRate),
+        commissionPercent: Number(p.commissionPercent || 0),
         sellingPrice: Number(p.sellingPrice),
         stockStatus,
       };
@@ -90,19 +120,14 @@ export class ProductsService {
     const filteredItems =
       query.stockStatus === "LOW_STOCK"
         ? items.filter((i) => i.stockStatus === "LOW_STOCK")
-        : query.stockStatus === "IN_STOCK"
-          ? items.filter((i) => i.stockStatus === "IN_STOCK")
-          : items;
+        : items;
 
     return {
       products: filteredItems,
       meta: {
         page,
         limit,
-        total:
-          query.stockStatus && query.stockStatus !== "ALL"
-            ? filteredItems.length
-            : total,
+        total: query.stockStatus === "LOW_STOCK" ? filteredItems.length : total,
         totalPages: Math.ceil(total / limit),
       },
     };
@@ -180,7 +205,11 @@ export class ProductsService {
     });
 
     if (!product) {
-      throw new AppError(`Product with code "${trimmed}" not found.`, 404, "PRODUCT_NOT_FOUND");
+      throw new AppError(
+        `Product with code "${trimmed}" not found.`,
+        404,
+        "PRODUCT_NOT_FOUND",
+      );
     }
 
     let stockStatus: "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK" = "IN_STOCK";
@@ -221,7 +250,11 @@ export class ProductsService {
     }
 
     if (!product) {
-      throw new AppError("Product not found to update sale rate.", 404, "PRODUCT_NOT_FOUND");
+      throw new AppError(
+        "Product not found to update sale rate.",
+        404,
+        "PRODUCT_NOT_FOUND",
+      );
     }
 
     const prevSaleRate = Number(product.sellingPrice);
@@ -329,81 +362,90 @@ export class ProductsService {
         where: { id: data.companyId },
       });
       if (!company) {
-        throw new AppError("The specified company does not exist.", 404, "COMPANY_NOT_FOUND");
+        throw new AppError(
+          "The specified company does not exist.",
+          404,
+          "COMPANY_NOT_FOUND",
+        );
       }
     }
 
     const initialQty = data.quantity || 0;
 
     // Use transaction to create product, initial warehouse stock, and stock movement
-    const product = await prisma.$transaction(async (tx) => {
-      const defaultWarehouse = await tx.warehouse.findFirst({
-        where: { isDefault: true, isActive: true },
-      }) || await tx.warehouse.findFirst({ where: { isActive: true } });
+    const product = await prisma.$transaction(
+      async (tx) => {
+        const defaultWarehouse =
+          (await tx.warehouse.findFirst({
+            where: { isDefault: true, isActive: true },
+          })) || (await tx.warehouse.findFirst({ where: { isActive: true } }));
 
-      const created = await tx.product.create({
-        data: {
-          name: data.name.trim(),
-          sku,
-          barcode: data.barcode && data.barcode.trim() ? data.barcode.trim() : null,
-          categoryId: data.categoryId || null,
-          companyId: data.companyId || null,
-          unit: data.unit ? data.unit.trim() : "Pieces",
-          dpRate: data.dpRate || 0,
-          commissionPercent: data.commissionPercent || 0,
-          costPrice: data.costPrice || 0,
-          sellingPrice: data.sellingPrice || 0,
-          quantity: initialQty,
-          reorderLevel:
-            data.reorderLevel !== undefined ? data.reorderLevel : 10,
-          description: data.description?.trim() || "None",
-          isActive: data.isActive !== undefined ? data.isActive : true,
-        },
-      });
+        const created = await tx.product.create({
+          data: {
+            name: data.name.trim(),
+            sku,
+            barcode:
+              data.barcode && data.barcode.trim() ? data.barcode.trim() : null,
+            categoryId: data.categoryId || null,
+            companyId: data.companyId || null,
+            unit: data.unit ? data.unit.trim() : "Pieces",
+            dpRate: data.dpRate || 0,
+            commissionPercent: data.commissionPercent || 0,
+            costPrice: data.costPrice || 0,
+            sellingPrice: data.sellingPrice || 0,
+            quantity: initialQty,
+            reorderLevel:
+              data.reorderLevel !== undefined ? data.reorderLevel : 10,
+            description: data.description?.trim() || "None",
+            isActive: data.isActive !== undefined ? data.isActive : true,
+          },
+        });
 
-      if (initialQty > 0) {
-        if (defaultWarehouse) {
-          await tx.warehouseStock.create({
+        if (initialQty > 0) {
+          if (defaultWarehouse) {
+            await tx.warehouseStock.create({
+              data: {
+                warehouseId: defaultWarehouse.id,
+                productId: created.id,
+                quantity: initialQty,
+              },
+            });
+          }
+
+          await tx.stockMovement.create({
             data: {
-              warehouseId: defaultWarehouse.id,
               productId: created.id,
-              quantity: initialQty,
+              type: StockMovementType.OPENING_STOCK,
+              quantityBefore: 0,
+              quantityChange: initialQty,
+              quantityAfter: initialQty,
+              reason: "Opening stock on product creation",
+              performedById: actorId,
             },
           });
         }
 
-        await tx.stockMovement.create({
-          data: {
-            productId: created.id,
-            type: StockMovementType.OPENING_STOCK,
-            quantityBefore: 0,
-            quantityChange: initialQty,
-            quantityAfter: initialQty,
-            reason: "Opening stock on product creation",
-            performedById: actorId,
+        await logAudit(
+          {
+            actorId,
+            action: "PRODUCT_CREATED",
+            entityType: "Product",
+            entityId: created.id,
+            metadata: {
+              name: created.name,
+              sku: created.sku,
+              barcode: created.barcode,
+              companyId: created.companyId,
+              initialQuantity: initialQty,
+            },
           },
-        });
-      }
+          tx,
+        );
 
-      await logAudit(
-        {
-          actorId,
-          action: "PRODUCT_CREATED",
-          entityType: "Product",
-          entityId: created.id,
-          metadata: {
-            name: created.name,
-            sku: created.sku,
-            barcode: created.barcode,
-            companyId: created.companyId,
-            initialQuantity: initialQty,
-          },
-        },
-        tx,
-      );
-
-      return created;
-    }, { maxWait: 10000, timeout: 30000 });
+        return created;
+      },
+      { maxWait: 10000, timeout: 30000 },
+    );
 
     return {
       ...product,
@@ -488,7 +530,11 @@ export class ProductsService {
         where: { id: data.companyId },
       });
       if (!company) {
-        throw new AppError("The specified company does not exist.", 404, "COMPANY_NOT_FOUND");
+        throw new AppError(
+          "The specified company does not exist.",
+          404,
+          "COMPANY_NOT_FOUND",
+        );
       }
     }
 
@@ -497,9 +543,13 @@ export class ProductsService {
       data: {
         ...(data.name ? { name: data.name.trim() } : {}),
         ...(data.sku ? { sku: data.sku.trim().toUpperCase() } : {}),
-        ...(data.barcode !== undefined ? { barcode: data.barcode ? data.barcode.trim() : null } : {}),
+        ...(data.barcode !== undefined
+          ? { barcode: data.barcode ? data.barcode.trim() : null }
+          : {}),
         ...(data.categoryId ? { categoryId: data.categoryId } : {}),
-        ...(data.companyId !== undefined ? { companyId: data.companyId || null } : {}),
+        ...(data.companyId !== undefined
+          ? { companyId: data.companyId || null }
+          : {}),
         ...(data.unit ? { unit: data.unit.trim().toLowerCase() } : {}),
         ...(data.dpRate !== undefined ? { dpRate: data.dpRate } : {}),
         ...(data.costPrice !== undefined ? { costPrice: data.costPrice } : {}),

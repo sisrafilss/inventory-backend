@@ -769,7 +769,12 @@ export class ReportsService {
   }
 
   static async getBalanceSheet(
-    query: { startDate?: string; endDate?: string; filterType?: string; warehouseId?: string },
+    query: {
+      startDate?: string;
+      endDate?: string;
+      filterType?: string;
+      warehouseId?: string;
+    },
     userRole: Role,
   ) {
     const dateFilter: Prisma.DateTimeFilter = {};
@@ -796,50 +801,56 @@ export class ReportsService {
       ...(query.warehouseId ? { warehouseId: query.warehouseId } : {}),
     };
 
-    const [sales, purchases, expenses, storeSetting, allProducts, stockMovements] =
-      await Promise.all([
-        prisma.sale.findMany({
-          where: saleWhere,
-          include: {
-            items: true,
-          },
-        }),
-        prisma.purchase.findMany({
-          where: {
-            ...(hasDate ? { createdAt: dateFilter } : {}),
-          },
-          include: {
-            items: true,
-          },
-        }),
-        prisma.expense.findMany({
-          where: hasDate ? { date: dateFilter } : {},
-        }),
-        prisma.storeSetting.findFirst(),
-        prisma.product.findMany({
-          select: {
-            id: true,
-            costPrice: true,
-            quantity: true,
-            warehouseStocks: query.warehouseId
-              ? { where: { warehouseId: query.warehouseId } }
-              : true,
-          },
-        }),
-        // Fetch stock movements after startDateTime to calculate opening stock
-        startDateTime
-          ? prisma.stockMovement.findMany({
-              where: {
-                createdAt: { gte: startDateTime },
-              },
-              select: {
-                productId: true,
-                quantityChange: true,
-                createdAt: true,
-              },
-            })
-          : Promise.resolve([]),
-      ]);
+    const [
+      sales,
+      purchases,
+      expenses,
+      storeSetting,
+      allProducts,
+      stockMovements,
+    ] = await Promise.all([
+      prisma.sale.findMany({
+        where: saleWhere,
+        include: {
+          items: true,
+        },
+      }),
+      prisma.purchase.findMany({
+        where: {
+          ...(hasDate ? { createdAt: dateFilter } : {}),
+        },
+        include: {
+          items: true,
+        },
+      }),
+      prisma.expense.findMany({
+        where: hasDate ? { date: dateFilter } : {},
+      }),
+      prisma.storeSetting.findFirst(),
+      prisma.product.findMany({
+        select: {
+          id: true,
+          costPrice: true,
+          quantity: true,
+          warehouseStocks: query.warehouseId
+            ? { where: { warehouseId: query.warehouseId } }
+            : true,
+        },
+      }),
+      // Fetch stock movements after startDateTime to calculate opening stock
+      startDateTime
+        ? prisma.stockMovement.findMany({
+            where: {
+              createdAt: { gte: startDateTime },
+            },
+            select: {
+              productId: true,
+              quantityChange: true,
+              createdAt: true,
+            },
+          })
+        : Promise.resolve([]),
+    ]);
 
     // 2. Aggregate Sales & COGS
     let totalSale = 0;
@@ -858,7 +869,10 @@ export class ReportsService {
     }
 
     // 4. Aggregate Expenses
-    const totalExpenses = expenses.reduce((acc, e) => acc + Number(e.amount), 0);
+    const totalExpenses = expenses.reduce(
+      (acc, e) => acc + Number(e.amount),
+      0,
+    );
 
     // 5. Present Stock (Closing stock valuation as of endDate)
     // Map current product stocks
@@ -898,7 +912,10 @@ export class ReportsService {
       // Unwind all stock movements between startDate and now/endDate
       const startQtyMap = new Map(productQtyMap);
       for (const sm of stockMovements) {
-        if (sm.createdAt >= startDateTime && (!endDateTime || sm.createdAt <= endDateTime)) {
+        if (
+          sm.createdAt >= startDateTime &&
+          (!endDateTime || sm.createdAt <= endDateTime)
+        ) {
           const cur = startQtyMap.get(sm.productId) || 0;
           startQtyMap.set(sm.productId, cur - sm.quantityChange);
         }
@@ -910,7 +927,8 @@ export class ReportsService {
     }
 
     // Round to 2 decimals
-    const round = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
+    const round = (num: number) =>
+      Math.round((num + Number.EPSILON) * 100) / 100;
 
     previousStock = round(previousStock);
     totalPurchase = round(totalPurchase);
@@ -977,7 +995,8 @@ export class ReportsService {
         filterType: query.filterType || "Date Wise",
       },
       storeInfo: {
-        storeName: storeSetting?.storeName || "M.R. Enterprise & Wholesale Trading",
+        storeName:
+          storeSetting?.storeName || "M.R. Enterprise & Wholesale Trading",
         proprietor: storeSetting?.proprietor || "Haji Mohammad Israfil",
         phone: storeSetting?.phone || "+880 1711-234567",
         address:
@@ -987,6 +1006,238 @@ export class ReportsService {
           storeSetting?.memoFooterNote ||
           "ধন্যবাদ, আবার আসবেন! মাল বুঝে নিয়ে ক্যাশ মেমো চেক করুন।",
       },
+    };
+  }
+
+  static async getDailyPurchaseOrSales(query: {
+    type?: "SALES" | "PURCHASE" | "ALL";
+    startDate?: string;
+    endDate?: string;
+    companyId?: string;
+    categoryId?: string;
+    search?: string;
+  }) {
+    const type = query.type || "SALES";
+
+    let start: Date;
+    let end: Date;
+
+    if (query.startDate) {
+      start = new Date(query.startDate);
+      start.setHours(0, 0, 0, 0);
+    } else {
+      start = new Date();
+      start.setHours(0, 0, 0, 0);
+    }
+
+    if (query.endDate) {
+      end = new Date(query.endDate);
+      end.setHours(23, 59, 59, 999);
+    } else {
+      end = new Date(start);
+      end.setHours(23, 59, 59, 999);
+    }
+
+    const items: Array<{
+      id: string;
+      date: string;
+      rawDate: Date;
+      code: string;
+      name: string;
+      company: string;
+      category: string;
+      quantity: number;
+      rate: number;
+      amount: number;
+      invoice: string;
+      type: "SALES" | "PURCHASE";
+      partyName: string;
+    }> = [];
+
+    const formatDate = (d: Date) => {
+      const day = String(d.getDate()).padStart(2, "0");
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const year = d.getFullYear();
+      return `${day}-${month}-${year}`;
+    };
+
+    // 1. Fetch Sales items
+    if (type === "SALES" || type === "ALL") {
+      const saleItemWhere: Prisma.SaleItemWhereInput = {
+        sale: {
+          createdAt: { gte: start, lte: end },
+        },
+      };
+
+      const productWhere: Prisma.ProductWhereInput = {};
+      if (query.companyId) {
+        productWhere.companyId = query.companyId;
+      }
+      if (query.categoryId) {
+        productWhere.categoryId = query.categoryId;
+      }
+      if (query.companyId || query.categoryId) {
+        saleItemWhere.product = productWhere;
+      }
+
+      if (query.search && query.search.trim()) {
+        const s = query.search.trim();
+        saleItemWhere.OR = [
+          { product: { name: { contains: s, mode: "insensitive" } } },
+          { product: { sku: { contains: s, mode: "insensitive" } } },
+          { sale: { referenceNumber: { contains: s, mode: "insensitive" } } },
+        ];
+      }
+
+      const saleItems = await prisma.saleItem.findMany({
+        where: saleItemWhere,
+        orderBy: { sale: { createdAt: "desc" } },
+        include: {
+          sale: {
+            select: {
+              referenceNumber: true,
+              createdAt: true,
+              customerName: true,
+              customer: { select: { name: true } },
+            },
+          },
+          product: {
+            select: {
+              name: true,
+              sku: true,
+              company: { select: { name: true } },
+              category: { select: { name: true } },
+            },
+          },
+        },
+      });
+
+      for (const item of saleItems) {
+        const rate = Number(item.unitPrice);
+        const amount = Number(item.lineTotal);
+        items.push({
+          id: item.id,
+          date: formatDate(item.sale.createdAt),
+          rawDate: item.sale.createdAt,
+          code: item.product.sku,
+          name: item.product.name,
+          company: item.product.company?.name || "—",
+          category: item.product.category?.name || "—",
+          quantity: item.quantity,
+          rate,
+          amount,
+          invoice: item.sale.referenceNumber,
+          type: "SALES",
+          partyName:
+            item.sale.customer?.name || item.sale.customerName || "Cash Party",
+        });
+      }
+    }
+
+    // 2. Fetch Purchase items
+    if (type === "PURCHASE" || type === "ALL") {
+      const purchaseItemWhere: Prisma.PurchaseItemWhereInput = {
+        purchase: {
+          createdAt: { gte: start, lte: end },
+        },
+      };
+
+      const productWhere: Prisma.ProductWhereInput = {};
+      if (query.companyId) {
+        productWhere.companyId = query.companyId;
+      }
+      if (query.categoryId) {
+        productWhere.categoryId = query.categoryId;
+      }
+      if (query.companyId || query.categoryId) {
+        purchaseItemWhere.product = productWhere;
+      }
+
+      if (query.search && query.search.trim()) {
+        const s = query.search.trim();
+        purchaseItemWhere.OR = [
+          { product: { name: { contains: s, mode: "insensitive" } } },
+          { product: { sku: { contains: s, mode: "insensitive" } } },
+          { purchase: { invoiceNumber: { contains: s, mode: "insensitive" } } },
+        ];
+      }
+
+      const purchaseItems = await prisma.purchaseItem.findMany({
+        where: purchaseItemWhere,
+        orderBy: { purchase: { createdAt: "desc" } },
+        include: {
+          purchase: {
+            select: {
+              invoiceNumber: true,
+              createdAt: true,
+              supplier: { select: { name: true, companyName: true } },
+            },
+          },
+          product: {
+            select: {
+              name: true,
+              sku: true,
+              company: { select: { name: true } },
+              category: { select: { name: true } },
+            },
+          },
+        },
+      });
+
+      for (const item of purchaseItems) {
+        const rate = Number(item.purchaseRate || item.dpRate || 0);
+        const amount = Number(item.lineTotal);
+        items.push({
+          id: item.id,
+          date: formatDate(item.purchase.createdAt),
+          rawDate: item.purchase.createdAt,
+          code: item.product.sku,
+          name: item.product.name,
+          company: item.product.company?.name || "—",
+          category: item.product.category?.name || "—",
+          quantity: item.quantity,
+          rate,
+          amount,
+          invoice: item.purchase.invoiceNumber,
+          type: "PURCHASE",
+          partyName:
+            item.purchase.supplier?.name ||
+            item.purchase.supplier?.companyName ||
+            "Cash Supplier",
+        });
+      }
+    }
+
+    // Sort items chronologically descending
+    items.sort((a, b) => b.rawDate.getTime() - a.rawDate.getTime());
+
+    const totalAmount = Number(
+      items.reduce((sum, item) => sum + item.amount, 0).toFixed(2),
+    );
+    const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0);
+
+    const storeSetting = await prisma.storeSetting.findFirst();
+
+    return {
+      type,
+      startDate: formatDate(start),
+      endDate: formatDate(end),
+      totalAmount,
+      totalQuantity,
+      count: items.length,
+      storeInfo: {
+        storeName:
+          storeSetting?.storeName || "M.R. Enterprise & Wholesale Trading",
+        proprietor: storeSetting?.proprietor || "Haji Mohammad Israfil",
+        phone: storeSetting?.phone || "+880 1711-234567",
+        address:
+          storeSetting?.address ||
+          "Holding 14, Tejgaon Industrial Area, Dhaka-1208, Bangladesh",
+      },
+      items: items.map((item, index) => ({
+        sn: index + 1,
+        ...item,
+      })),
     };
   }
 }

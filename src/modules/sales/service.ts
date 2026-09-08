@@ -84,6 +84,7 @@ export class SalesService {
       warehouseId?: string;
       paymentType?: "CASH" | "CREDIT";
       discount?: number;
+      discountPercent?: number;
       paidAmount?: number;
       note?: string;
       items: Array<{
@@ -171,8 +172,17 @@ export class SalesService {
       };
     });
 
-    const discount =
+    let discount =
       data.discount && data.discount > 0 ? Number(data.discount) : 0;
+    if (
+      data.discountPercent !== undefined &&
+      data.discountPercent > 0 &&
+      (!data.discount || data.discount === 0)
+    ) {
+      discount = Number(
+        ((totalAmount * data.discountPercent) / 100).toFixed(2),
+      );
+    }
     const netAmount = Math.max(0, totalAmount - discount);
     const profit = Number((netAmount - totalPurchaseCost).toFixed(2));
 

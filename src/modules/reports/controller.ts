@@ -100,7 +100,8 @@ export class ReportsController {
     next: NextFunction,
   ) {
     try {
-      const invoiceNumber = req.params.invoiceNumber || (req.query.invoiceNumber as string);
+      const invoiceNumber =
+        req.params.invoiceNumber || (req.query.invoiceNumber as string);
       const report = await ReportsService.getProfitByInvoice(
         invoiceNumber,
         req.user!.role,
@@ -110,7 +111,11 @@ export class ReportsController {
       if (error.message === "FORBIDDEN_PROFIT_ACCESS") {
         return res
           .status(403)
-          .json({ success: false, message: "Forbidden: Only Admin and Super Admin can view profit data." });
+          .json({
+            success: false,
+            message:
+              "Forbidden: Only Admin and Super Admin can view profit data.",
+          });
       }
       if (error.message === "INVOICE_NOT_FOUND") {
         return res
@@ -212,8 +217,32 @@ export class ReportsController {
       if (error.message === "FORBIDDEN_BALANCE_SHEET") {
         return res
           .status(403)
-          .json({ success: false, message: "Forbidden: Only Admin, Super Admin and Manager can view Balance Sheet." });
+          .json({
+            success: false,
+            message:
+              "Forbidden: Only Admin, Super Admin and Manager can view Balance Sheet.",
+          });
       }
+      next(error);
+    }
+  }
+
+  static async getDailyPurchaseOrSales(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const report = await ReportsService.getDailyPurchaseOrSales({
+        type: req.query.type as "SALES" | "PURCHASE" | "ALL",
+        startDate: req.query.startDate as string,
+        endDate: req.query.endDate as string,
+        companyId: req.query.companyId as string,
+        categoryId: req.query.categoryId as string,
+        search: req.query.search as string,
+      });
+      return sendSuccess(res, report);
+    } catch (error) {
       next(error);
     }
   }
