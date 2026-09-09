@@ -297,6 +297,7 @@ export class ProductsService {
       barcode?: string | null;
       categoryId?: string | null;
       companyId?: string | null;
+      warehouseId?: string | null;
       unit?: string;
       dpRate?: number;
       commissionPercent?: number;
@@ -375,10 +376,11 @@ export class ProductsService {
     // Use transaction to create product, initial warehouse stock, and stock movement
     const product = await prisma.$transaction(
       async (tx) => {
-        const defaultWarehouse =
-          (await tx.warehouse.findFirst({
-            where: { isDefault: true, isActive: true },
-          })) || (await tx.warehouse.findFirst({ where: { isActive: true } }));
+        const targetWarehouse = data.warehouseId
+          ? await tx.warehouse.findUnique({ where: { id: data.warehouseId } })
+          : (await tx.warehouse.findFirst({
+              where: { isDefault: true, isActive: true },
+            })) || (await tx.warehouse.findFirst({ where: { isActive: true } }));
 
         const created = await tx.product.create({
           data: {
@@ -402,10 +404,10 @@ export class ProductsService {
         });
 
         if (initialQty > 0) {
-          if (defaultWarehouse) {
+          if (targetWarehouse) {
             await tx.warehouseStock.create({
               data: {
-                warehouseId: defaultWarehouse.id,
+                warehouseId: targetWarehouse.id,
                 productId: created.id,
                 quantity: initialQty,
               },
@@ -415,12 +417,12 @@ export class ProductsService {
           await tx.stockMovement.create({
             data: {
               productId: created.id,
-              warehouseId: defaultWarehouse?.id || null,
+              warehouseId: targetWarehouse?.id || null,
               type: StockMovementType.OPENING_STOCK,
               quantityBefore: 0,
               quantityChange: initialQty,
               quantityAfter: initialQty,
-              reason: "Opening stock on product creation",
+              reason: `Opening stock on product creation (${targetWarehouse?.name || "Warehouse"})`,
               performedById: actorId,
             },
           });

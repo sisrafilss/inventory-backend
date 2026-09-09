@@ -38,6 +38,7 @@ export const createProductSchema = z.object({
       .default(10),
     description: z.string().optional().default("None"),
     isActive: z.boolean().optional(),
+    warehouseId: z.string().uuid("Valid warehouse ID required").optional().nullable(),
   }),
 });
 
