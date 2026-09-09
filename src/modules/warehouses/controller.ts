@@ -19,6 +19,35 @@ export class WarehousesController {
     }
   }
 
+  static async getNextWarehouseCode(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const code = await WarehousesService.getNextWarehouseCode();
+      return sendSuccess(res, { code });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async checkWarehouseCode(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const result = await WarehousesService.checkWarehouseCode(
+        req.params.code,
+        req.query.excludeId as string | undefined,
+      );
+      return sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async getWarehouseById(
     req: Request,
     res: Response,

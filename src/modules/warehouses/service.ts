@@ -56,12 +56,67 @@ export class WarehousesService {
     return warehouse;
   }
 
+  static async getNextWarehouseCode(): Promise<string> {
+    const warehouses = await prisma.warehouse.findMany({
+      select: { code: true },
+      where: { code: { not: null } },
+    });
+
+    const usedNumbers = new Set<number>();
+    for (const w of warehouses) {
+      if (!w.code) continue;
+      const match = w.code
+        .trim()
+        .toUpperCase()
+        .match(/^WA-(\d+)$/);
+      if (match) {
+        usedNumbers.add(parseInt(match[1], 10));
+      }
+    }
+
+    let nextNum = 101;
+    while (usedNumbers.has(nextNum)) {
+      nextNum++;
+    }
+
+    while (true) {
+      const candidate = `WA-${nextNum}`;
+      const exists = await prisma.warehouse.findFirst({
+        where: { code: { equals: candidate, mode: "insensitive" } },
+      });
+      if (!exists) {
+        return candidate;
+      }
+      nextNum++;
+    }
+  }
+
+  static async checkWarehouseCode(code: string, excludeId?: string) {
+    const trimmed = code.trim().toUpperCase();
+    if (!trimmed) {
+      return { exists: false };
+    }
+
+    const warehouse = await prisma.warehouse.findFirst({
+      where: {
+        code: { equals: trimmed, mode: "insensitive" },
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+      select: { id: true, name: true, code: true },
+    });
+
+    return {
+      exists: Boolean(warehouse),
+      warehouse: warehouse || null,
+    };
+  }
+
   static async createWarehouse(
     actorId: string,
     data: {
       name: string;
-      code?: string;
-      address?: string;
+      code?: string | null;
+      address?: string | null;
       isDefault?: boolean;
       isActive?: boolean;
     },
@@ -77,17 +132,22 @@ export class WarehousesService {
       );
     }
 
+    let finalCode: string;
     if (data.code && data.code.trim()) {
-      const existingCode = await prisma.warehouse.findUnique({
-        where: { code: data.code.trim() },
+      finalCode = data.code.trim().toUpperCase();
+      const existingCode = await prisma.warehouse.findFirst({
+        where: { code: { equals: finalCode, mode: "insensitive" } },
       });
       if (existingCode) {
         throw new AppError(
-          "A warehouse with this code already exists.",
+          `A warehouse with code "${finalCode}" already exists (${existingCode.name}).`,
           409,
           "WAREHOUSE_CODE_EXISTS",
         );
       }
+    } else {
+      // Auto-generate next code (e.g. WA-101) if not provided
+      finalCode = await this.getNextWarehouseCode();
     }
 
     // If marked as default, unset other defaults
@@ -101,7 +161,7 @@ export class WarehousesService {
     const warehouse = await prisma.warehouse.create({
       data: {
         name: data.name.trim(),
-        code: data.code ? data.code.trim() : null,
+        code: finalCode,
         address: data.address ? data.address.trim() : null,
         isDefault: data.isDefault || false,
         isActive: data.isActive !== undefined ? data.isActive : true,
@@ -124,7 +184,7 @@ export class WarehousesService {
     id: string,
     data: {
       name?: string;
-      code?: string;
+      code?: string | null;
       address?: string | null;
       isDefault?: boolean;
       isActive?: boolean;
@@ -148,16 +208,28 @@ export class WarehousesService {
       }
     }
 
-    if (data.code && data.code.trim() !== warehouse.code) {
-      const existingCode = await prisma.warehouse.findUnique({
-        where: { code: data.code.trim() },
-      });
-      if (existingCode) {
-        throw new AppError(
-          "A warehouse with this code already exists.",
-          409,
-          "WAREHOUSE_CODE_EXISTS",
-        );
+    let finalCode: string | undefined = undefined;
+    if (data.code !== undefined) {
+      if (data.code && data.code.trim()) {
+        finalCode = data.code.trim().toUpperCase();
+        if (finalCode !== warehouse.code?.toUpperCase()) {
+          const existingCode = await prisma.warehouse.findFirst({
+            where: {
+              code: { equals: finalCode, mode: "insensitive" },
+              id: { not: id },
+            },
+          });
+          if (existingCode) {
+            throw new AppError(
+              `A warehouse with code "${finalCode}" already exists (${existingCode.name}).`,
+              409,
+              "WAREHOUSE_CODE_EXISTS",
+            );
+          }
+        }
+      } else {
+        // If code was cleared, auto-generate next code
+        finalCode = await this.getNextWarehouseCode();
       }
     }
 
@@ -172,9 +244,7 @@ export class WarehousesService {
       where: { id },
       data: {
         ...(data.name && { name: data.name.trim() }),
-        ...(data.code !== undefined && {
-          code: data.code ? data.code.trim() : null,
-        }),
+        ...(finalCode !== undefined && { code: finalCode }),
         ...(data.address !== undefined && {
           address: data.address ? data.address.trim() : null,
         }),

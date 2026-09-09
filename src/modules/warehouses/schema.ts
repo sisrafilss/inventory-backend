@@ -2,9 +2,12 @@ import { z } from "zod";
 
 export const createWarehouseSchema = z.object({
   body: z.object({
-    name: z.string().min(2, "Warehouse name must be at least 2 characters").max(100),
-    code: z.string().max(30).optional(),
-    address: z.string().max(300).optional(),
+    name: z
+      .string()
+      .min(2, "Warehouse name must be at least 2 characters")
+      .max(100),
+    code: z.string().max(30).optional().nullable(),
+    address: z.string().max(300).optional().nullable(),
     isDefault: z.boolean().optional(),
     isActive: z.boolean().optional(),
   }),
@@ -16,7 +19,7 @@ export const updateWarehouseSchema = z.object({
   }),
   body: z.object({
     name: z.string().min(2).max(100).optional(),
-    code: z.string().max(30).optional(),
+    code: z.string().max(30).optional().nullable(),
     address: z.string().max(300).optional().nullable(),
     isDefault: z.boolean().optional(),
     isActive: z.boolean().optional(),

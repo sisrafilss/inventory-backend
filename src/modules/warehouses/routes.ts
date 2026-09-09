@@ -19,6 +19,8 @@ router.get(
   validateRequest(listWarehousesSchema),
   WarehousesController.listWarehouses,
 );
+router.get("/next-code", WarehousesController.getNextWarehouseCode);
+router.get("/check-code/:code", WarehousesController.checkWarehouseCode);
 router.get("/:id", WarehousesController.getWarehouseById);
 
 router.post(
