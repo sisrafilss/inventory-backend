@@ -6,12 +6,43 @@ export class CompaniesController {
   static async listCompanies(req: Request, res: Response, next: NextFunction) {
     try {
       const isActive =
-        req.query.isActive !== undefined ? req.query.isActive === "true" : undefined;
+        req.query.isActive !== undefined
+          ? req.query.isActive === "true"
+          : undefined;
       const companies = await CompaniesService.listCompanies({
         search: req.query.search as string,
         isActive,
       });
       return sendSuccess(res, companies);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getNextCompanyCode(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const code = await CompaniesService.getNextCompanyCode();
+      return sendSuccess(res, { code });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async checkCompanyCode(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const result = await CompaniesService.checkCompanyCode(
+        req.params.code,
+        req.query.excludeId as string | undefined,
+      );
+      return sendSuccess(res, result);
     } catch (error) {
       next(error);
     }
@@ -28,7 +59,10 @@ export class CompaniesController {
 
   static async createCompany(req: Request, res: Response, next: NextFunction) {
     try {
-      const company = await CompaniesService.createCompany(req.user!.id, req.body);
+      const company = await CompaniesService.createCompany(
+        req.user!.id,
+        req.body,
+      );
       return sendSuccess(res, company, "Company created successfully", 201);
     } catch (error) {
       next(error);
@@ -50,7 +84,10 @@ export class CompaniesController {
 
   static async deleteCompany(req: Request, res: Response, next: NextFunction) {
     try {
-      const result = await CompaniesService.deleteCompany(req.user!.id, req.params.id);
+      const result = await CompaniesService.deleteCompany(
+        req.user!.id,
+        req.params.id,
+      );
       return sendSuccess(res, result);
     } catch (error) {
       next(error);

@@ -18,6 +18,8 @@ router.get(
   validateRequest(listCompaniesSchema),
   CompaniesController.listCompanies,
 );
+router.get("/next-code", CompaniesController.getNextCompanyCode);
+router.get("/check-code/:code", CompaniesController.checkCompanyCode);
 router.get("/:id", CompaniesController.getCompanyById);
 
 router.post(
