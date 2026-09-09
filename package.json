@@ -14,6 +14,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:push": "prisma db push",
     "seed": "tsx prisma/seed.ts",
+    "db:dump": "tsx prisma/db-dump.ts",
+    "db:restore": "tsx prisma/db-restore.ts",
     "test": "vitest run --test-timeout=30000 --hook-timeout=30000"
   },
   "keywords": [
