@@ -415,6 +415,7 @@ export class ProductsService {
           await tx.stockMovement.create({
             data: {
               productId: created.id,
+              warehouseId: defaultWarehouse?.id || null,
               type: StockMovementType.OPENING_STOCK,
               quantityBefore: 0,
               quantityChange: initialQty,

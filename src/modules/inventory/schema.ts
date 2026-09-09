@@ -4,6 +4,7 @@ import { StockMovementType } from "@prisma/client";
 export const createAdjustmentSchema = z.object({
   body: z.object({
     productId: z.string().uuid("Invalid product ID"),
+    warehouseId: z.string().uuid("Invalid warehouse ID").optional(),
     type: z.enum([
       StockMovementType.RESTOCK,
       StockMovementType.DAMAGE,
@@ -25,6 +26,7 @@ export const listMovementsSchema = z.object({
     page: z.string().optional(),
     limit: z.string().optional(),
     productId: z.string().optional(),
+    warehouseId: z.string().optional(),
     performedById: z.string().optional(),
     type: z.nativeEnum(StockMovementType).optional(),
     startDate: z.string().optional(),

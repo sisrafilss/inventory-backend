@@ -154,13 +154,51 @@ export class SalesService {
       }
     }
 
-    // 1. Fetch products to get current selling prices, cost prices, and stock
+    // 1. Fetch default warehouse if not specified
+    const defaultWarehouse =
+      (await prisma.warehouse.findFirst({
+        where: { isDefault: true, isActive: true },
+      })) || (await prisma.warehouse.findFirst({ where: { isActive: true } }));
+
+    // 2. Fetch products and warehouse stocks
     const productIds = data.items.map((i) => i.productId);
     const products = await prisma.product.findMany({
       where: { id: { in: productIds } },
     });
 
     const productMap = new Map(products.map((p) => [p.id, p]));
+
+    const targetWarehouseIds = Array.from(
+      new Set(
+        data.items
+          .map(
+            (item) =>
+              item.warehouseId || data.warehouseId || defaultWarehouse?.id,
+          )
+          .filter(Boolean) as string[],
+      ),
+    );
+
+    const warehouseStocks = await prisma.warehouseStock.findMany({
+      where: {
+        warehouseId: { in: targetWarehouseIds },
+        productId: { in: productIds },
+      },
+      include: {
+        warehouse: { select: { id: true, name: true } },
+      },
+    });
+
+    const whStockMap = new Map<
+      string,
+      { quantity: number; warehouseName: string }
+    >();
+    for (const ws of warehouseStocks) {
+      whStockMap.set(`${ws.warehouseId}_${ws.productId}`, {
+        quantity: ws.quantity,
+        warehouseName: ws.warehouse?.name || "Warehouse",
+      });
+    }
 
     for (const item of data.items) {
       const prod = productMap.get(item.productId);
@@ -180,14 +218,29 @@ export class SalesService {
       }
       if (prod.quantity < item.quantity) {
         throw new AppError(
-          `Insufficient stock for "${prod.name}" (SKU: ${prod.sku}). Available: ${prod.quantity}, Required: ${item.quantity}.`,
+          `Insufficient total stock for "${prod.name}" (SKU: ${prod.sku}). Available across all warehouses: ${prod.quantity}, Required: ${item.quantity}.`,
           400,
           "INSUFFICIENT_STOCK",
         );
       }
+
+      const targetWhId =
+        item.warehouseId || data.warehouseId || defaultWarehouse?.id;
+      if (targetWhId) {
+        const whStockInfo = whStockMap.get(`${targetWhId}_${item.productId}`);
+        const availableWhQty = whStockInfo ? whStockInfo.quantity : 0;
+        if (availableWhQty < item.quantity) {
+          const whName = whStockInfo?.warehouseName || "selected warehouse";
+          throw new AppError(
+            `Insufficient stock for "${prod.name}" (SKU: ${prod.sku}) in ${whName}. Available: ${availableWhQty}, Required: ${item.quantity}.`,
+            400,
+            "INSUFFICIENT_WAREHOUSE_STOCK",
+          );
+        }
+      }
     }
 
-    // 2. Calculate line totals, purchase cost, and grand total accurately
+    // 3. Calculate line totals, purchase cost, and grand total accurately
     let totalAmount = 0;
     let totalPurchaseCost = 0;
 
@@ -206,9 +259,12 @@ export class SalesService {
       totalAmount += lineTotal;
       totalPurchaseCost += Number((purchaseCost * item.quantity).toFixed(2));
 
+      const targetWhId =
+        item.warehouseId || data.warehouseId || defaultWarehouse?.id || null;
+
       return {
         productId: item.productId,
-        warehouseId: item.warehouseId || data.warehouseId || null,
+        warehouseId: targetWhId,
         quantity: item.quantity,
         purchaseCost,
         unitPrice,
@@ -328,7 +384,8 @@ export class SalesService {
           });
 
           // Warehouse stock decrement if warehouse assigned
-          const targetWarehouseId = item.warehouseId || data.warehouseId;
+          const targetWarehouseId =
+            item.warehouseId || data.warehouseId || defaultWarehouse?.id;
           if (targetWarehouseId) {
             const whStock = await tx.warehouseStock.findUnique({
               where: {
@@ -339,26 +396,25 @@ export class SalesService {
               },
             });
 
-            if (whStock) {
-              await tx.warehouseStock.update({
-                where: { id: whStock.id },
-                data: { quantity: { decrement: item.quantity } },
-              });
-            } else {
-              await tx.warehouseStock.create({
-                data: {
-                  warehouseId: targetWarehouseId,
-                  productId: item.productId,
-                  quantity: -item.quantity,
-                },
-              });
+            if (!whStock || whStock.quantity < item.quantity) {
+              throw new AppError(
+                `Insufficient stock for item "${item.productId}" in warehouse. Available: ${whStock ? whStock.quantity : 0}, Required: ${item.quantity}.`,
+                400,
+                "INSUFFICIENT_WAREHOUSE_STOCK",
+              );
             }
+
+            await tx.warehouseStock.update({
+              where: { id: whStock.id },
+              data: { quantity: { decrement: item.quantity } },
+            });
           }
 
-          // Immutable StockMovement audit record
+          // Immutable StockMovement audit record with warehouseId
           await tx.stockMovement.create({
             data: {
               productId: item.productId,
+              warehouseId: targetWarehouseId || null,
               type: StockMovementType.SALE_DEDUCTION,
               quantityBefore: qtyBefore,
               quantityChange: -item.quantity,

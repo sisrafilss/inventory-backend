@@ -8,6 +8,7 @@ export class InventoryService {
     actorId: string,
     data: {
       productId: string;
+      warehouseId?: string;
       type: StockMovementType;
       quantity: number;
       reason: string;
@@ -38,78 +39,136 @@ export class InventoryService {
         );
     }
 
+    const targetWarehouse = data.warehouseId
+      ? await prisma.warehouse.findUnique({ where: { id: data.warehouseId } })
+      : (await prisma.warehouse.findFirst({
+          where: { isDefault: true, isActive: true },
+        })) ||
+        (await prisma.warehouse.findFirst({
+          where: { isActive: true },
+        }));
+
+    const targetWarehouseId = targetWarehouse?.id || null;
+
     // Execute adjustment inside a transaction with row locking
-    const result = await prisma.$transaction(async (tx) => {
-      const product = await tx.product.findUnique({
-        where: { id: data.productId },
-      });
+    const result = await prisma.$transaction(
+      async (tx) => {
+        const product = await tx.product.findUnique({
+          where: { id: data.productId },
+        });
 
-      if (!product) {
-        throw new AppError("Product not found.", 404, "PRODUCT_NOT_FOUND");
-      }
+        if (!product) {
+          throw new AppError("Product not found.", 404, "PRODUCT_NOT_FOUND");
+        }
 
-      const qtyBefore = product.quantity;
-      const qtyAfter = qtyBefore + delta;
+        const qtyBefore = product.quantity;
+        const qtyAfter = qtyBefore + delta;
 
-      if (qtyAfter < 0) {
-        throw new AppError(
-          `Adjustment failed: Cannot reduce stock below zero. Current stock is ${qtyBefore}, attempted change is ${delta}.`,
-          400,
-          "INSUFFICIENT_STOCK",
-        );
-      }
+        if (qtyAfter < 0) {
+          throw new AppError(
+            `Adjustment failed: Cannot reduce total stock below zero. Current stock is ${qtyBefore}, attempted change is ${delta}.`,
+            400,
+            "INSUFFICIENT_STOCK",
+          );
+        }
 
-      const updatedProduct = await tx.product.update({
-        where: { id: data.productId },
-        data: { quantity: qtyAfter },
-      });
+        // Adjust warehouse-specific stock
+        if (targetWarehouseId) {
+          const whStock = await tx.warehouseStock.findUnique({
+            where: {
+              warehouseId_productId: {
+                warehouseId: targetWarehouseId,
+                productId: data.productId,
+              },
+            },
+          });
 
-      const movement = await tx.stockMovement.create({
-        data: {
-          productId: data.productId,
-          type: data.type,
-          quantityBefore: qtyBefore,
-          quantityChange: delta,
-          quantityAfter: qtyAfter,
-          referenceType: "MANUAL_ADJUSTMENT",
-          reason: data.reason.trim(),
-          performedById: actorId,
-        },
-        include: {
-          performedBy: {
-            select: { id: true, name: true, email: true, role: true },
-          },
-        },
-      });
+          const currentWhQty = whStock ? whStock.quantity : 0;
+          const newWhQty = currentWhQty + delta;
 
-      await logAudit(
-        {
-          actorId,
-          action: "STOCK_ADJUSTED",
-          entityType: "Product",
-          entityId: data.productId,
-          metadata: {
-            productName: product.name,
-            sku: product.sku,
+          if (newWhQty < 0) {
+            throw new AppError(
+              `Adjustment failed: Cannot reduce stock in "${targetWarehouse?.name || "selected warehouse"}" below zero. Current warehouse stock is ${currentWhQty}, attempted change is ${delta}.`,
+              400,
+              "INSUFFICIENT_WAREHOUSE_STOCK",
+            );
+          }
+
+          await tx.warehouseStock.upsert({
+            where: {
+              warehouseId_productId: {
+                warehouseId: targetWarehouseId,
+                productId: data.productId,
+              },
+            },
+            update: { quantity: newWhQty },
+            create: {
+              warehouseId: targetWarehouseId,
+              productId: data.productId,
+              quantity: newWhQty,
+            },
+          });
+        }
+
+        const updatedProduct = await tx.product.update({
+          where: { id: data.productId },
+          data: { quantity: qtyAfter },
+        });
+
+        const movement = await tx.stockMovement.create({
+          data: {
+            productId: data.productId,
+            warehouseId: targetWarehouseId,
             type: data.type,
             quantityBefore: qtyBefore,
             quantityChange: delta,
             quantityAfter: qtyAfter,
-            reason: data.reason,
+            referenceType: "MANUAL_ADJUSTMENT",
+            reason: data.reason.trim(),
+            performedById: actorId,
           },
-        },
-        tx,
-      );
+          include: {
+            performedBy: {
+              select: { id: true, name: true, email: true, role: true },
+            },
+            warehouse: {
+              select: { id: true, name: true, code: true },
+            },
+          },
+        });
 
-      return {
-        product: {
-          ...updatedProduct,
-          costPrice: Number(updatedProduct.costPrice),
-          sellingPrice: Number(updatedProduct.sellingPrice),
-        },
-        movement,
-      };
-    }, { maxWait: 10000, timeout: 30000 });
+        await logAudit(
+          {
+            actorId,
+            action: "STOCK_ADJUSTED",
+            entityType: "Product",
+            entityId: data.productId,
+            metadata: {
+              productName: product.name,
+              sku: product.sku,
+              warehouseId: targetWarehouseId,
+              warehouseName: targetWarehouse?.name,
+              type: data.type,
+              quantityBefore: qtyBefore,
+              quantityChange: delta,
+              quantityAfter: qtyAfter,
+              reason: data.reason,
+            },
+          },
+          tx,
+        );
+
+        return {
+          product: {
+            ...updatedProduct,
+            costPrice: Number(updatedProduct.costPrice),
+            sellingPrice: Number(updatedProduct.sellingPrice),
+          },
+          movement,
+        };
+      },
+      { maxWait: 10000, timeout: 30000 },
+    );
 
     return result;
   }
@@ -118,6 +177,7 @@ export class InventoryService {
     page?: number;
     limit?: number;
     productId?: string;
+    warehouseId?: string;
     performedById?: string;
     type?: StockMovementType;
     startDate?: string;
@@ -131,6 +191,10 @@ export class InventoryService {
 
     if (query.productId) {
       where.productId = query.productId;
+    }
+
+    if (query.warehouseId) {
+      where.warehouseId = query.warehouseId;
     }
 
     if (query.performedById) {
@@ -163,6 +227,9 @@ export class InventoryService {
         include: {
           product: {
             select: { id: true, name: true, sku: true, unit: true },
+          },
+          warehouse: {
+            select: { id: true, name: true, code: true },
           },
           performedBy: {
             select: { id: true, name: true, email: true, role: true },

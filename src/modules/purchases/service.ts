@@ -160,6 +160,7 @@ export class PurchasesService {
           await tx.stockMovement.create({
             data: {
               productId: item.productId,
+              warehouseId: targetWarehouseId || null,
               type: StockMovementType.RESTOCK,
               quantityBefore: product.quantity,
               quantityChange: item.quantity,

@@ -29,6 +29,7 @@ export class InventoryController {
         ? parseInt(req.query.limit as string, 10)
         : 20;
       const productId = req.query.productId as string;
+      const warehouseId = req.query.warehouseId as string;
       const performedById = req.query.performedById as string;
       const type = req.query.type as StockMovementType;
       const startDate = req.query.startDate as string;
@@ -38,6 +39,7 @@ export class InventoryController {
         page,
         limit,
         productId,
+        warehouseId,
         performedById,
         type,
         startDate,

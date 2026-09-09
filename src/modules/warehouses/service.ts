@@ -1,7 +1,7 @@
 import { prisma } from "../../config/db.js";
 import { AppError } from "../../errors/AppError.js";
 import { logAudit } from "../../utils/audit.js";
-import { Prisma } from "@prisma/client";
+import { Prisma, StockMovementType } from "@prisma/client";
 
 export class WarehousesService {
   static async listWarehouses(query: { search?: string; isActive?: boolean }) {
@@ -246,6 +246,42 @@ export class WarehousesService {
             warehouseId: data.targetWarehouseId,
             productId: data.productId,
             quantity: data.quantity,
+          },
+        });
+
+        const product = await tx.product.findUnique({
+          where: { id: data.productId },
+          select: { quantity: true },
+        });
+        const currentTotalQty = product?.quantity || 0;
+
+        // Record outward movement from source warehouse
+        await tx.stockMovement.create({
+          data: {
+            productId: data.productId,
+            warehouseId: data.sourceWarehouseId,
+            type: StockMovementType.OTHER,
+            quantityBefore: currentTotalQty,
+            quantityChange: -data.quantity,
+            quantityAfter: currentTotalQty,
+            referenceType: "WAREHOUSE_TRANSFER",
+            reason: `Transfer to target warehouse: ${data.note || "Stock transfer"}`,
+            performedById: actorId,
+          },
+        });
+
+        // Record inward movement to target warehouse
+        await tx.stockMovement.create({
+          data: {
+            productId: data.productId,
+            warehouseId: data.targetWarehouseId,
+            type: StockMovementType.OTHER,
+            quantityBefore: currentTotalQty,
+            quantityChange: data.quantity,
+            quantityAfter: currentTotalQty,
+            referenceType: "WAREHOUSE_TRANSFER",
+            reason: `Transfer from source warehouse: ${data.note || "Stock transfer"}`,
+            performedById: actorId,
           },
         });
 
