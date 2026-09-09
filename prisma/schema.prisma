@@ -46,6 +46,8 @@ model User {
   passwordHash       String
   role               Role       @default(MANAGER)
   status             UserStatus @default(ACTIVE)
+  warehouseId        String?
+  warehouse          Warehouse? @relation("UserWarehouse", fields: [warehouseId], references: [id], onDelete: SetNull)
   mustChangePassword Boolean    @default(false)
   lastLoginAt        DateTime?
   createdAt          DateTime   @default(now())
@@ -61,6 +63,7 @@ model User {
   @@index([email])
   @@index([role])
   @@index([status])
+  @@index([warehouseId])
 }
 
 model Company {
@@ -91,6 +94,7 @@ model Warehouse {
   saleItems     SaleItem[]
   sales         Sale[]
   stockMovements StockMovement[]
+  assignedUsers User[]          @relation("UserWarehouse")
 
   @@index([isActive])
 }

@@ -1,7 +1,7 @@
 import { prisma } from "../../config/db.js";
 import { AppError } from "../../errors/AppError.js";
 import { logAudit } from "../../utils/audit.js";
-import { StockMovementType, Prisma } from "@prisma/client";
+import { StockMovementType, Prisma, Role } from "@prisma/client";
 
 export class InventoryService {
   static async adjustStock(
@@ -39,8 +39,25 @@ export class InventoryService {
         );
     }
 
-    const targetWarehouse = data.warehouseId
-      ? await prisma.warehouse.findUnique({ where: { id: data.warehouseId } })
+    const actor = await prisma.user.findUnique({
+      where: { id: actorId },
+      select: { role: true, warehouseId: true },
+    });
+
+    let effectiveWarehouseId = data.warehouseId;
+    if (actor?.role === Role.MANAGER) {
+      if (!actor.warehouseId) {
+        throw new AppError(
+          "No warehouse assigned to your manager account. Please contact an administrator.",
+          403,
+          "NO_ASSIGNED_WAREHOUSE",
+        );
+      }
+      effectiveWarehouseId = actor.warehouseId;
+    }
+
+    const targetWarehouse = effectiveWarehouseId
+      ? await prisma.warehouse.findUnique({ where: { id: effectiveWarehouseId } })
       : (await prisma.warehouse.findFirst({
           where: { isDefault: true, isActive: true },
         })) ||

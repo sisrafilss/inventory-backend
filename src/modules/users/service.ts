@@ -50,6 +50,10 @@ export class UsersService {
           address: true,
           role: true,
           status: true,
+          warehouseId: true,
+          warehouse: {
+            select: { id: true, name: true, code: true },
+          },
           mustChangePassword: true,
           lastLoginAt: true,
           createdAt: true,
@@ -80,6 +84,10 @@ export class UsersService {
         address: true,
         role: true,
         status: true,
+        warehouseId: true,
+        warehouse: {
+          select: { id: true, name: true, code: true },
+        },
         mustChangePassword: true,
         lastLoginAt: true,
         createdAt: true,
@@ -103,6 +111,7 @@ export class UsersService {
       password: string;
       phone?: string;
       address?: string;
+      warehouseId?: string | null;
     },
   ) {
     if (data.role === Role.SUPER_ADMIN) {
@@ -145,6 +154,7 @@ export class UsersService {
         passwordHash,
         role: data.role,
         status: UserStatus.ACTIVE,
+        warehouseId: data.warehouseId || null,
         mustChangePassword: isManager, // Managers must change password on first login
       },
       select: {
@@ -155,6 +165,10 @@ export class UsersService {
         address: true,
         role: true,
         status: true,
+        warehouseId: true,
+        warehouse: {
+          select: { id: true, name: true, code: true },
+        },
         mustChangePassword: true,
         createdAt: true,
       },
@@ -165,7 +179,7 @@ export class UsersService {
       action: "USER_CREATED",
       entityType: "User",
       entityId: user.id,
-      metadata: { role: user.role, email: user.email, name: user.name },
+      metadata: { role: user.role, email: user.email, name: user.name, warehouseId: user.warehouseId },
     });
 
     return user;
@@ -174,11 +188,15 @@ export class UsersService {
   static async updateUser(
     actorId: string,
     id: string,
-    data: { name?: string; phone?: string; address?: string },
+    data: { name?: string; phone?: string; address?: string; role?: Role; warehouseId?: string | null },
   ) {
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) {
       throw new AppError("User not found.", 404, "USER_NOT_FOUND");
+    }
+
+    if (data.role && data.role === Role.SUPER_ADMIN && user.role !== Role.SUPER_ADMIN) {
+      throw new AppError("Cannot promote user to Super Admin.", 403, "FORBIDDEN_ROLE_UPDATE");
     }
 
     const updated = await prisma.user.update({
@@ -191,6 +209,10 @@ export class UsersService {
         ...(data.address !== undefined
           ? { address: data.address.trim() || null }
           : {}),
+        ...(data.role ? { role: data.role } : {}),
+        ...(data.warehouseId !== undefined
+          ? { warehouseId: data.warehouseId || null }
+          : {}),
       },
       select: {
         id: true,
@@ -200,6 +222,10 @@ export class UsersService {
         address: true,
         role: true,
         status: true,
+        warehouseId: true,
+        warehouse: {
+          select: { id: true, name: true, code: true },
+        },
         mustChangePassword: true,
         updatedAt: true,
       },

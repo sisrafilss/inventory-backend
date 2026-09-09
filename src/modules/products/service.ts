@@ -1,7 +1,7 @@
 import { prisma } from "../../config/db.js";
 import { AppError } from "../../errors/AppError.js";
 import { logAudit } from "../../utils/audit.js";
-import { Prisma, StockMovementType } from "@prisma/client";
+import { Prisma, StockMovementType, Role } from "@prisma/client";
 
 export class ProductsService {
   static async listProducts(query: {
@@ -371,13 +371,30 @@ export class ProductsService {
       }
     }
 
+    const actor = await prisma.user.findUnique({
+      where: { id: actorId },
+      select: { role: true, warehouseId: true },
+    });
+
+    let effectiveWarehouseId = data.warehouseId;
+    if (actor?.role === Role.MANAGER) {
+      if (!actor.warehouseId) {
+        throw new AppError(
+          "No warehouse assigned to your manager account. Please contact an administrator.",
+          403,
+          "NO_ASSIGNED_WAREHOUSE",
+        );
+      }
+      effectiveWarehouseId = actor.warehouseId;
+    }
+
     const initialQty = data.quantity || 0;
 
     // Use transaction to create product, initial warehouse stock, and stock movement
     const product = await prisma.$transaction(
       async (tx) => {
-        const targetWarehouse = data.warehouseId
-          ? await tx.warehouse.findUnique({ where: { id: data.warehouseId } })
+        const targetWarehouse = effectiveWarehouseId
+          ? await tx.warehouse.findUnique({ where: { id: effectiveWarehouseId } })
           : (await tx.warehouse.findFirst({
               where: { isDefault: true, isActive: true },
             })) || (await tx.warehouse.findFirst({ where: { isActive: true } }));

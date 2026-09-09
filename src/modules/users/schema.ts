@@ -9,6 +9,7 @@ export const createUserSchema = z.object({
     password: z.string().min(6, "Password must be at least 6 characters"),
     phone: z.string().optional(),
     address: z.string().optional(),
+    warehouseId: z.string().uuid("Invalid warehouse ID").optional().nullable().or(z.literal("")),
   }),
 });
 
@@ -17,6 +18,8 @@ export const updateUserSchema = z.object({
     name: z.string().min(2).optional(),
     phone: z.string().optional(),
     address: z.string().optional(),
+    role: z.enum([Role.ADMIN, Role.MANAGER]).optional(),
+    warehouseId: z.string().uuid("Invalid warehouse ID").optional().nullable().or(z.literal("")),
   }),
 });
 

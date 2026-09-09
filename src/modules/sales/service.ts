@@ -97,6 +97,27 @@ export class SalesService {
       }>;
     },
   ) {
+    const creator = await prisma.user.findUnique({
+      where: { id: createdById },
+      select: { role: true, warehouseId: true },
+    });
+
+    if (creator?.role === Role.MANAGER) {
+      if (!creator.warehouseId) {
+        throw new AppError(
+          "No warehouse assigned to your manager account. Please contact an administrator.",
+          403,
+          "NO_ASSIGNED_WAREHOUSE",
+        );
+      }
+      data.warehouseId = creator.warehouseId;
+      if (data.items && data.items.length > 0) {
+        for (const item of data.items) {
+          item.warehouseId = creator.warehouseId;
+        }
+      }
+    }
+
     let customerName = data.customerName?.trim() || null;
     let customerPhone = data.customerPhone?.trim() || null;
     const customerAddress = data.customerAddress?.trim() || null;

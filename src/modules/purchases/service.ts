@@ -1,6 +1,6 @@
 import { prisma } from "../../config/db.js";
 import { AppError } from "../../errors/AppError.js";
-import { Prisma, StockMovementType } from "@prisma/client";
+import { Prisma, StockMovementType, Role } from "@prisma/client";
 
 export interface CreatePurchaseItemInput {
   productId: string;
@@ -31,6 +31,27 @@ export class PurchasesService {
   }
 
   static async createPurchase(actorId: string, input: CreatePurchaseInput) {
+    const actor = await prisma.user.findUnique({
+      where: { id: actorId },
+      select: { role: true, warehouseId: true },
+    });
+
+    if (actor?.role === Role.MANAGER) {
+      if (!actor.warehouseId) {
+        throw new AppError(
+          "No warehouse assigned to your manager account. Please contact an administrator.",
+          403,
+          "NO_ASSIGNED_WAREHOUSE",
+        );
+      }
+      input.warehouseId = actor.warehouseId;
+      if (input.items && input.items.length > 0) {
+        for (const item of input.items) {
+          item.warehouseId = actor.warehouseId;
+        }
+      }
+    }
+
     if (!input.items || input.items.length === 0) {
       throw new AppError(
         "Purchase must contain at least one item.",
