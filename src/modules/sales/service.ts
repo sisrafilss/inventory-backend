@@ -81,6 +81,7 @@ export class SalesService {
       customerId?: string;
       customerName?: string;
       customerPhone?: string;
+      customerAddress?: string;
       warehouseId?: string;
       paymentType?: "CASH" | "CREDIT";
       discount?: number;
@@ -98,6 +99,7 @@ export class SalesService {
   ) {
     let customerName = data.customerName?.trim() || null;
     let customerPhone = data.customerPhone?.trim() || null;
+    const customerAddress = data.customerAddress?.trim() || null;
 
     if (data.customerId) {
       const customer = await prisma.customer.findUnique({
@@ -108,6 +110,48 @@ export class SalesService {
       }
       if (!customerName) customerName = customer.name;
       if (!customerPhone) customerPhone = customer.phone;
+      if (customerAddress && !customer.address) {
+        await prisma.customer.update({
+          where: { id: customer.id },
+          data: { address: customerAddress },
+        });
+      }
+    } else if (customerName && customerName.toLowerCase() !== "cash party") {
+      // Find existing customer by phone or name
+      const phoneToMatch =
+        customerPhone && customerPhone !== "N/A" ? customerPhone : undefined;
+      const existingCustomer = await prisma.customer.findFirst({
+        where: {
+          OR: [
+            ...(phoneToMatch ? [{ phone: phoneToMatch }] : []),
+            { name: { equals: customerName, mode: "insensitive" } },
+          ],
+        },
+      });
+
+      if (existingCustomer) {
+        data.customerId = existingCustomer.id;
+        if (!customerPhone && existingCustomer.phone) {
+          customerPhone = existingCustomer.phone;
+        }
+        if (!existingCustomer.address && customerAddress) {
+          await prisma.customer.update({
+            where: { id: existingCustomer.id },
+            data: { address: customerAddress },
+          });
+        }
+      } else {
+        const newCustomer = await prisma.customer.create({
+          data: {
+            name: customerName,
+            phone: customerPhone || "N/A",
+            address: customerAddress || null,
+            openingDue: 0,
+            currentDue: 0,
+          },
+        });
+        data.customerId = newCustomer.id;
+      }
     }
 
     // 1. Fetch products to get current selling prices, cost prices, and stock
@@ -239,7 +283,7 @@ export class SalesService {
           },
           include: {
             customer: {
-              select: { id: true, name: true, phone: true, currentDue: true },
+              select: { id: true, name: true, phone: true, address: true, currentDue: true },
             },
             warehouse: {
               select: { id: true, name: true },

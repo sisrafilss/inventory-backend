@@ -7,6 +7,7 @@ export const createSaleSchema = z.object({
     customerId: z.string().uuid("Invalid customer ID").optional(),
     customerName: z.string().optional(),
     customerPhone: z.string().optional(),
+    customerAddress: z.string().optional(),
     warehouseId: z.string().uuid("Invalid warehouse ID").optional(),
     paymentType: z.enum(["CASH", "CREDIT"]).default("CASH"),
     discount: z.number().min(0, "Discount cannot be negative").default(0),

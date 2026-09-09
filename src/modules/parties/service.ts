@@ -255,6 +255,7 @@ export class PartiesService {
             : []),
           { name: { equals: trimmed, mode: "insensitive" } },
           { name: { startsWith: trimmed, mode: "insensitive" } },
+          { name: { contains: trimmed, mode: "insensitive" } },
         ],
       },
     });
