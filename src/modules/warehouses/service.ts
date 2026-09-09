@@ -172,8 +172,12 @@ export class WarehousesService {
       where: { id },
       data: {
         ...(data.name && { name: data.name.trim() }),
-        ...(data.code !== undefined && { code: data.code ? data.code.trim() : null }),
-        ...(data.address !== undefined && { address: data.address ? data.address.trim() : null }),
+        ...(data.code !== undefined && {
+          code: data.code ? data.code.trim() : null,
+        }),
+        ...(data.address !== undefined && {
+          address: data.address ? data.address.trim() : null,
+        }),
         ...(data.isDefault !== undefined && { isDefault: data.isDefault }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
       },
