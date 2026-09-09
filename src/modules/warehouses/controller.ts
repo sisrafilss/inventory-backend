@@ -56,4 +56,13 @@ export class WarehousesController {
       next(error);
     }
   }
+
+  static async deleteWarehouse(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await WarehousesService.deleteWarehouse(req.user!.id, req.params.id);
+      return sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

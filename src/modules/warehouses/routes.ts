@@ -42,4 +42,10 @@ router.post(
   WarehousesController.transferStock,
 );
 
+router.delete(
+  "/:id",
+  requireRoles(Role.SUPER_ADMIN, Role.ADMIN),
+  WarehousesController.deleteWarehouse,
+);
+
 export default router;

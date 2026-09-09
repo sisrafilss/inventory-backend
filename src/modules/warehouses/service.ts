@@ -305,4 +305,60 @@ export class WarehousesService {
       { maxWait: 10000, timeout: 30000 },
     );
   }
+
+  static async deleteWarehouse(actorId: string, id: string) {
+    const warehouse = await prisma.warehouse.findUnique({
+      where: { id },
+      include: {
+        _count: {
+          select: {
+            stocks: true,
+            purchaseItems: true,
+            saleItems: true,
+            sales: true,
+            stockMovements: true,
+          },
+        },
+      },
+    });
+
+    if (!warehouse) {
+      throw new AppError("Warehouse not found.", 404, "WAREHOUSE_NOT_FOUND");
+    }
+
+    if (warehouse.isDefault) {
+      throw new AppError(
+        "Cannot delete the default warehouse. Please set another warehouse as default first.",
+        400,
+        "CANNOT_DELETE_DEFAULT_WAREHOUSE",
+      );
+    }
+
+    const hasHistory =
+      warehouse._count.stocks > 0 ||
+      warehouse._count.purchaseItems > 0 ||
+      warehouse._count.saleItems > 0 ||
+      warehouse._count.sales > 0 ||
+      warehouse._count.stockMovements > 0;
+
+    if (hasHistory) {
+      throw new AppError(
+        "Cannot delete warehouse because it has associated inventory or transaction records. Please mark it as Inactive instead.",
+        400,
+        "WAREHOUSE_HAS_RECORDS",
+      );
+    }
+
+    await prisma.warehouse.delete({ where: { id } });
+
+    await logAudit({
+      actorId,
+      action: "WAREHOUSE_DELETED",
+      entityType: "Warehouse",
+      entityId: id,
+      metadata: { name: warehouse.name, code: warehouse.code },
+    });
+
+    return { message: "Warehouse deleted successfully." };
+  }
 }
