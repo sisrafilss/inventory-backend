@@ -394,10 +394,13 @@ export class ProductsService {
     const product = await prisma.$transaction(
       async (tx) => {
         const targetWarehouse = effectiveWarehouseId
-          ? await tx.warehouse.findUnique({ where: { id: effectiveWarehouseId } })
+          ? await tx.warehouse.findUnique({
+              where: { id: effectiveWarehouseId },
+            })
           : (await tx.warehouse.findFirst({
               where: { isDefault: true, isActive: true },
-            })) || (await tx.warehouse.findFirst({ where: { isActive: true } }));
+            })) ||
+            (await tx.warehouse.findFirst({ where: { isActive: true } }));
 
         const created = await tx.product.create({
           data: {
