@@ -4,4 +4,4 @@ dist
 *.log
 coverage
 .DS_Store
-
+*-backup.json
