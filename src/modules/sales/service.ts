@@ -362,7 +362,13 @@ export class SalesService {
           },
           include: {
             customer: {
-              select: { id: true, name: true, phone: true, address: true, currentDue: true },
+              select: {
+                id: true,
+                name: true,
+                phone: true,
+                address: true,
+                currentDue: true,
+              },
             },
             warehouse: {
               select: { id: true, name: true },

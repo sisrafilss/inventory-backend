@@ -27,7 +27,12 @@ export const updateSupplierSchema = z.object({
     id: z.string().uuid("Invalid supplier ID"),
   }),
   body: z.object({
-    code: z.string().trim().min(1, "Supplier code cannot be empty").max(50).optional(),
+    code: z
+      .string()
+      .trim()
+      .min(1, "Supplier code cannot be empty")
+      .max(50)
+      .optional(),
     name: z.string().min(2).max(100).optional(),
     companyName: z.string().max(100).optional().nullable(),
     phone: z.string().max(30).optional().nullable().or(z.literal("")),
@@ -63,7 +68,12 @@ export const updateCustomerSchema = z.object({
     id: z.string().uuid("Invalid customer ID"),
   }),
   body: z.object({
-    code: z.string().trim().min(1, "Customer code cannot be empty").max(50).optional(),
+    code: z
+      .string()
+      .trim()
+      .min(1, "Customer code cannot be empty")
+      .max(50)
+      .optional(),
     name: z.string().min(2).max(100).optional(),
     phone: z.string().max(30).optional().nullable().or(z.literal("")),
     email: z.string().email().optional().nullable().or(z.literal("")),
