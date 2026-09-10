@@ -23,6 +23,7 @@ export class PartiesService {
     if (query.search && query.search.trim()) {
       const q = query.search.trim();
       where.OR = [
+        { code: { contains: q, mode: "insensitive" } },
         { name: { contains: q, mode: "insensitive" } },
         { companyName: { contains: q, mode: "insensitive" } },
         { phone: { contains: q, mode: "insensitive" } },
@@ -39,6 +40,24 @@ export class PartiesService {
         },
       },
     });
+  }
+
+  static async checkSupplierCode(code: string, excludeId?: string) {
+    const trimmed = code.trim();
+    if (!trimmed) {
+      return { exists: false, supplier: null };
+    }
+    const supplier = await prisma.supplier.findFirst({
+      where: {
+        code: { equals: trimmed, mode: "insensitive" },
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+      select: { id: true, name: true, code: true },
+    });
+    return {
+      exists: Boolean(supplier),
+      supplier,
+    };
   }
 
   static async getSupplierById(id: string) {
@@ -74,24 +93,40 @@ export class PartiesService {
   static async createSupplier(
     actorId: string,
     data: {
+      code?: string | null;
       name: string;
-      companyName?: string;
-      phone: string;
-      email?: string;
-      address?: string;
+      companyName?: string | null;
+      phone?: string | null;
+      email?: string | null;
+      address?: string | null;
       openingDue?: number;
       isActive?: boolean;
     },
   ) {
+    const trimmedCode = data.code && data.code.trim() ? data.code.trim() : null;
+    if (trimmedCode) {
+      const existing = await prisma.supplier.findFirst({
+        where: { code: { equals: trimmedCode, mode: "insensitive" } },
+      });
+      if (existing) {
+        throw new AppError(
+          `Supplier code "${trimmedCode}" already exists.`,
+          400,
+          "DUPLICATE_CODE",
+        );
+      }
+    }
+
     const openingDue = data.openingDue || 0;
 
     const supplier = await prisma.supplier.create({
       data: {
+        code: trimmedCode,
         name: data.name.trim(),
-        companyName: data.companyName ? data.companyName.trim() : null,
-        phone: data.phone.trim(),
+        companyName: data.companyName && data.companyName.trim() ? data.companyName.trim() : null,
+        phone: data.phone && data.phone.trim() ? data.phone.trim() : null,
         email: data.email && data.email.trim() ? data.email.trim() : null,
-        address: data.address ? data.address.trim() : null,
+        address: data.address && data.address.trim() ? data.address.trim() : null,
         openingDue,
         currentDue: openingDue,
         isActive: data.isActive !== undefined ? data.isActive : true,
@@ -104,6 +139,7 @@ export class PartiesService {
       entityType: "Supplier",
       entityId: supplier.id,
       metadata: {
+        code: supplier.code,
         name: supplier.name,
         phone: supplier.phone,
         currentDue: supplier.currentDue,
@@ -117,9 +153,10 @@ export class PartiesService {
     actorId: string,
     id: string,
     data: {
+      code?: string | null;
       name?: string;
       companyName?: string | null;
-      phone?: string;
+      phone?: string | null;
       email?: string | null;
       address?: string | null;
       isActive?: boolean;
@@ -130,14 +167,38 @@ export class PartiesService {
       throw new AppError("Supplier not found.", 404, "SUPPLIER_NOT_FOUND");
     }
 
+    let codeUpdate: string | null | undefined = undefined;
+    if (data.code !== undefined) {
+      const trimmed = data.code && data.code.trim() ? data.code.trim() : null;
+      if (trimmed && trimmed.toLowerCase() !== supplier.code?.toLowerCase()) {
+        const existing = await prisma.supplier.findFirst({
+          where: {
+            code: { equals: trimmed, mode: "insensitive" },
+            id: { not: id },
+          },
+        });
+        if (existing) {
+          throw new AppError(
+            `Supplier code "${trimmed}" already exists.`,
+            400,
+            "DUPLICATE_CODE",
+          );
+        }
+      }
+      codeUpdate = trimmed;
+    }
+
     const updated = await prisma.supplier.update({
       where: { id },
       data: {
+        ...(codeUpdate !== undefined && { code: codeUpdate }),
         ...(data.name && { name: data.name.trim() }),
         ...(data.companyName !== undefined && {
           companyName: data.companyName ? data.companyName.trim() : null,
         }),
-        ...(data.phone && { phone: data.phone.trim() }),
+        ...(data.phone !== undefined && {
+          phone: data.phone ? data.phone.trim() : null,
+        }),
         ...(data.email !== undefined && {
           email: data.email && data.email.trim() ? data.email.trim() : null,
         }),
@@ -211,6 +272,7 @@ export class PartiesService {
     if (query.search && query.search.trim()) {
       const q = query.search.trim();
       where.OR = [
+        { code: { contains: q, mode: "insensitive" } },
         { name: { contains: q, mode: "insensitive" } },
         { phone: { contains: q, mode: "insensitive" } },
         { address: { contains: q, mode: "insensitive" } },
@@ -228,6 +290,24 @@ export class PartiesService {
     });
   }
 
+  static async checkCustomerCode(code: string, excludeId?: string) {
+    const trimmed = code.trim();
+    if (!trimmed) {
+      return { exists: false, customer: null };
+    }
+    const customer = await prisma.customer.findFirst({
+      where: {
+        code: { equals: trimmed, mode: "insensitive" },
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+      select: { id: true, name: true, code: true },
+    });
+    return {
+      exists: Boolean(customer),
+      customer,
+    };
+  }
+
   static async getCustomerByCode(code: string) {
     const trimmed = code.trim();
     if (!trimmed) {
@@ -236,10 +316,11 @@ export class PartiesService {
 
     const cleanDigits = trimmed.replace(/[^0-9]/g, "");
 
-    // 1. Try finding by UUID, UUID prefix, exact phone, clean phone, or name
+    // 1. Try finding by code, UUID, UUID prefix, exact phone, clean phone, or name
     let customer = await prisma.customer.findFirst({
       where: {
         OR: [
+          { code: { equals: trimmed, mode: "insensitive" } },
           { id: { equals: trimmed, mode: "insensitive" } },
           { id: { startsWith: trimmed, mode: "insensitive" } },
           { phone: { equals: trimmed, mode: "insensitive" } },
@@ -298,10 +379,11 @@ export class PartiesService {
 
     const cleanDigits = trimmed.replace(/[^0-9]/g, "");
 
-    // 1. Try finding by UUID, UUID prefix, exact phone, clean phone, name, or companyName
+    // 1. Try finding by code, UUID, UUID prefix, exact phone, clean phone, name, or companyName
     let supplier = await prisma.supplier.findFirst({
       where: {
         OR: [
+          { code: { equals: trimmed, mode: "insensitive" } },
           { id: { equals: trimmed, mode: "insensitive" } },
           { id: { startsWith: trimmed, mode: "insensitive" } },
           { phone: { equals: trimmed, mode: "insensitive" } },
@@ -387,22 +469,38 @@ export class PartiesService {
   static async createCustomer(
     actorId: string,
     data: {
+      code?: string | null;
       name: string;
-      phone: string;
-      email?: string;
-      address?: string;
+      phone?: string | null;
+      email?: string | null;
+      address?: string | null;
       openingDue?: number;
       isActive?: boolean;
     },
   ) {
+    const trimmedCode = data.code && data.code.trim() ? data.code.trim() : null;
+    if (trimmedCode) {
+      const existing = await prisma.customer.findFirst({
+        where: { code: { equals: trimmedCode, mode: "insensitive" } },
+      });
+      if (existing) {
+        throw new AppError(
+          `Customer code "${trimmedCode}" already exists.`,
+          400,
+          "DUPLICATE_CODE",
+        );
+      }
+    }
+
     const openingDue = data.openingDue || 0;
 
     const customer = await prisma.customer.create({
       data: {
+        code: trimmedCode,
         name: data.name.trim(),
-        phone: data.phone.trim(),
+        phone: data.phone && data.phone.trim() ? data.phone.trim() : null,
         email: data.email && data.email.trim() ? data.email.trim() : null,
-        address: data.address ? data.address.trim() : null,
+        address: data.address && data.address.trim() ? data.address.trim() : null,
         openingDue,
         currentDue: openingDue,
         isActive: data.isActive !== undefined ? data.isActive : true,
@@ -415,6 +513,7 @@ export class PartiesService {
       entityType: "Customer",
       entityId: customer.id,
       metadata: {
+        code: customer.code,
         name: customer.name,
         phone: customer.phone,
         currentDue: customer.currentDue,
@@ -428,8 +527,9 @@ export class PartiesService {
     actorId: string,
     id: string,
     data: {
+      code?: string | null;
       name?: string;
-      phone?: string;
+      phone?: string | null;
       email?: string | null;
       address?: string | null;
       isActive?: boolean;
@@ -440,11 +540,35 @@ export class PartiesService {
       throw new AppError("Customer not found.", 404, "CUSTOMER_NOT_FOUND");
     }
 
+    let codeUpdate: string | null | undefined = undefined;
+    if (data.code !== undefined) {
+      const trimmed = data.code && data.code.trim() ? data.code.trim() : null;
+      if (trimmed && trimmed.toLowerCase() !== customer.code?.toLowerCase()) {
+        const existing = await prisma.customer.findFirst({
+          where: {
+            code: { equals: trimmed, mode: "insensitive" },
+            id: { not: id },
+          },
+        });
+        if (existing) {
+          throw new AppError(
+            `Customer code "${trimmed}" already exists.`,
+            400,
+            "DUPLICATE_CODE",
+          );
+        }
+      }
+      codeUpdate = trimmed;
+    }
+
     const updated = await prisma.customer.update({
       where: { id },
       data: {
+        ...(codeUpdate !== undefined && { code: codeUpdate }),
         ...(data.name && { name: data.name.trim() }),
-        ...(data.phone && { phone: data.phone.trim() }),
+        ...(data.phone !== undefined && {
+          phone: data.phone ? data.phone.trim() : null,
+        }),
         ...(data.email !== undefined && {
           email: data.email && data.email.trim() ? data.email.trim() : null,
         }),

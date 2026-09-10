@@ -24,6 +24,7 @@ router.get(
   validateRequest(listPartiesSchema),
   PartiesController.listSuppliers,
 );
+router.get("/suppliers/check-code/:code", PartiesController.checkSupplierCode);
 router.get("/suppliers/by-code/:code", PartiesController.getSupplierByCode);
 router.get("/suppliers/:id", PartiesController.getSupplierById);
 router.post(
@@ -50,6 +51,7 @@ router.get(
   validateRequest(listPartiesSchema),
   PartiesController.listCustomers,
 );
+router.get("/customers/check-code/:code", PartiesController.checkCustomerCode);
 router.get("/customers/by-code/:code", PartiesController.getCustomerByCode);
 router.get("/customers/:id", PartiesController.getCustomerById);
 router.post(

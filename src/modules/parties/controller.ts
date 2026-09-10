@@ -35,6 +35,21 @@ export class PartiesController {
     }
   }
 
+  static async checkSupplierCode(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const { code } = req.params;
+      const excludeId = req.query.excludeId as string | undefined;
+      const result = await PartiesService.checkSupplierCode(code, excludeId);
+      return sendSuccess(res, result);
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async createSupplier(req: Request, res: Response, next: NextFunction) {
     try {
       const supplier = await PartiesService.createSupplier(
@@ -125,6 +140,21 @@ export class PartiesController {
     try {
       const customer = await PartiesService.getCustomerById(req.params.id);
       return sendSuccess(res, customer);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async checkCustomerCode(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const { code } = req.params;
+      const excludeId = req.query.excludeId as string | undefined;
+      const result = await PartiesService.checkCustomerCode(code, excludeId);
+      return sendSuccess(res, result);
     } catch (error) {
       next(error);
     }

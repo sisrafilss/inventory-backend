@@ -2,11 +2,12 @@ import { z } from "zod";
 
 export const createSupplierSchema = z.object({
   body: z.object({
+    code: z.string().max(50).optional().nullable().or(z.literal("")),
     name: z.string().min(2, "Supplier name is required").max(100),
-    companyName: z.string().max(100).optional(),
-    phone: z.string().min(5, "Valid phone number is required").max(30),
-    email: z.string().email("Invalid email address").optional().or(z.literal("")),
-    address: z.string().max(300).optional(),
+    companyName: z.string().max(100).optional().nullable(),
+    phone: z.string().max(30).optional().nullable().or(z.literal("")),
+    email: z.string().email("Invalid email address").optional().nullable().or(z.literal("")),
+    address: z.string().max(300).optional().nullable(),
     openingDue: z.number().min(0).optional(),
     isActive: z.boolean().optional(),
   }),
@@ -17,9 +18,10 @@ export const updateSupplierSchema = z.object({
     id: z.string().uuid("Invalid supplier ID"),
   }),
   body: z.object({
+    code: z.string().max(50).optional().nullable().or(z.literal("")),
     name: z.string().min(2).max(100).optional(),
     companyName: z.string().max(100).optional().nullable(),
-    phone: z.string().min(5).max(30).optional(),
+    phone: z.string().max(30).optional().nullable().or(z.literal("")),
     email: z.string().email().optional().nullable().or(z.literal("")),
     address: z.string().max(300).optional().nullable(),
     isActive: z.boolean().optional(),
@@ -28,10 +30,11 @@ export const updateSupplierSchema = z.object({
 
 export const createCustomerSchema = z.object({
   body: z.object({
+    code: z.string().max(50).optional().nullable().or(z.literal("")),
     name: z.string().min(2, "Customer name is required").max(100),
-    phone: z.string().min(5, "Valid phone number is required").max(30),
-    email: z.string().email("Invalid email address").optional().or(z.literal("")),
-    address: z.string().max(300).optional(),
+    phone: z.string().max(30).optional().nullable().or(z.literal("")),
+    email: z.string().email("Invalid email address").optional().nullable().or(z.literal("")),
+    address: z.string().max(300).optional().nullable(),
     openingDue: z.number().min(0).optional(),
     isActive: z.boolean().optional(),
   }),
@@ -42,8 +45,9 @@ export const updateCustomerSchema = z.object({
     id: z.string().uuid("Invalid customer ID"),
   }),
   body: z.object({
+    code: z.string().max(50).optional().nullable().or(z.literal("")),
     name: z.string().min(2).max(100).optional(),
-    phone: z.string().min(5).max(30).optional(),
+    phone: z.string().max(30).optional().nullable().or(z.literal("")),
     email: z.string().email().optional().nullable().or(z.literal("")),
     address: z.string().max(300).optional().nullable(),
     isActive: z.boolean().optional(),

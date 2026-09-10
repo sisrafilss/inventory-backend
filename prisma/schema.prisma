@@ -160,9 +160,10 @@ model Product {
 
 model Supplier {
   id          String   @id @default(uuid())
+  code        String?  @unique
   name        String
   companyName String?
-  phone       String
+  phone       String?
   email       String?
   address     String?
   openingDue  Decimal  @default(0.00) @db.Decimal(12, 2)
@@ -174,6 +175,7 @@ model Supplier {
   purchases Purchase[]
   payments  PartyPayment[]
 
+  @@index([code])
   @@index([name])
   @@index([phone])
   @@index([isActive])
@@ -181,8 +183,9 @@ model Supplier {
 
 model Customer {
   id         String   @id @default(uuid())
+  code       String?  @unique
   name       String
-  phone      String
+  phone      String?
   email      String?
   address    String?
   openingDue Decimal  @default(0.00) @db.Decimal(12, 2)
@@ -194,6 +197,7 @@ model Customer {
   sales    Sale[]
   payments PartyPayment[]
 
+  @@index([code])
   @@index([name])
   @@index([phone])
   @@index([isActive])
