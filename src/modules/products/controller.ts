@@ -14,6 +14,7 @@ export class ProductsController {
       const name = req.query.name as string;
       const categoryId = req.query.categoryId as string;
       const companyId = req.query.companyId as string;
+      const warehouseId = req.query.warehouseId as string;
       const isActive =
         req.query.isActive !== undefined
           ? req.query.isActive === "true"
@@ -32,6 +33,7 @@ export class ProductsController {
         name,
         categoryId,
         companyId,
+        warehouseId,
         isActive,
         stockStatus,
       });

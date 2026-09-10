@@ -12,6 +12,7 @@ export class ProductsService {
     name?: string;
     categoryId?: string;
     companyId?: string;
+    warehouseId?: string;
     isActive?: boolean;
     stockStatus?: "ALL" | "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK";
   }) {
@@ -27,6 +28,14 @@ export class ProductsService {
 
     if (query.companyId) {
       where.companyId = query.companyId;
+    }
+
+    if (query.warehouseId) {
+      where.warehouseStocks = {
+        some: {
+          warehouseId: query.warehouseId,
+        },
+      };
     }
 
     if (query.isActive !== undefined) {
