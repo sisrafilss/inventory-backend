@@ -376,8 +376,10 @@ export class ProductsService {
       select: { role: true, warehouseId: true },
     });
 
+    const initialQty = data.quantity || 0;
+
     let effectiveWarehouseId = data.warehouseId;
-    if (actor?.role === Role.MANAGER) {
+    if (initialQty > 0 && actor?.role === Role.MANAGER) {
       if (!actor.warehouseId) {
         throw new AppError(
           "No warehouse assigned to your manager account. Please contact an administrator.",
@@ -387,8 +389,6 @@ export class ProductsService {
       }
       effectiveWarehouseId = actor.warehouseId;
     }
-
-    const initialQty = data.quantity || 0;
 
     // Use transaction to create product, initial warehouse stock, and stock movement
     const product = await prisma.$transaction(
