@@ -89,12 +89,12 @@ model Warehouse {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  stocks        WarehouseStock[]
-  purchaseItems PurchaseItem[]
-  saleItems     SaleItem[]
-  sales         Sale[]
+  stocks         WarehouseStock[]
+  purchaseItems  PurchaseItem[]
+  saleItems      SaleItem[]
+  sales          Sale[]
   stockMovements StockMovement[]
-  assignedUsers User[]          @relation("UserWarehouse")
+  assignedUsers  User[]           @relation("UserWarehouse")
 
   @@index([isActive])
 }
@@ -126,10 +126,10 @@ model Category {
 }
 
 model Product {
-  id           String    @id @default(uuid())
-  name         String
-  sku          String    @unique
-  barcode      String?   @unique
+  id                String    @id @default(uuid())
+  name              String
+  sku               String    @unique
+  barcode           String?   @unique
   categoryId        String?
   category          Category? @relation(fields: [categoryId], references: [id])
   companyId         String?
@@ -139,12 +139,12 @@ model Product {
   commissionPercent Decimal   @default(0.00) @db.Decimal(5, 2)
   costPrice         Decimal   @default(0.00) @db.Decimal(12, 2)
   sellingPrice      Decimal   @default(0.00) @db.Decimal(12, 2)
-  quantity     Int       @default(0)
-  reorderLevel Int       @default(10)
-  description  String?
-  isActive     Boolean   @default(true)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  quantity          Int       @default(0)
+  reorderLevel      Int       @default(10)
+  description       String?
+  isActive          Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
 
   saleItems       SaleItem[]
   purchaseItems   PurchaseItem[]
@@ -160,7 +160,7 @@ model Product {
 
 model Supplier {
   id          String   @id @default(uuid())
-  code        String?  @unique
+  code        String   @unique
   name        String
   companyName String?
   phone       String?
@@ -183,7 +183,7 @@ model Supplier {
 
 model Customer {
   id         String   @id @default(uuid())
-  code       String?  @unique
+  code       String   @unique
   name       String
   phone      String?
   email      String?
@@ -204,20 +204,20 @@ model Customer {
 }
 
 model Purchase {
-  id            String   @id @default(uuid())
-  invoiceNumber String   @unique
+  id            String    @id @default(uuid())
+  invoiceNumber String    @unique
   supplierId    String?
   supplier      Supplier? @relation(fields: [supplierId], references: [id])
   supplierName  String?
-  paymentType   String   @default("CASH") // CASH, SUPPLIER (Credit)
-  totalAmount   Decimal  @default(0.00) @db.Decimal(12, 2)
-  paidAmount    Decimal  @default(0.00) @db.Decimal(12, 2)
-  dueAmount     Decimal  @default(0.00) @db.Decimal(12, 2)
+  paymentType   String    @default("CASH") // CASH, SUPPLIER (Credit)
+  totalAmount   Decimal   @default(0.00) @db.Decimal(12, 2)
+  paidAmount    Decimal   @default(0.00) @db.Decimal(12, 2)
+  dueAmount     Decimal   @default(0.00) @db.Decimal(12, 2)
   note          String?
   createdById   String
-  createdBy     User     @relation("CreatedPurchases", fields: [createdById], references: [id])
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdBy     User      @relation("CreatedPurchases", fields: [createdById], references: [id])
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   items PurchaseItem[]
 
@@ -247,14 +247,14 @@ model PurchaseItem {
 }
 
 model Sale {
-  id              String     @id @default(uuid())
-  referenceNumber String     @unique
-  createdById     String
-  createdBy       User       @relation("CreatedSales", fields: [createdById], references: [id])
-  customerId      String?
-  customer        Customer?  @relation(fields: [customerId], references: [id])
-  status          SaleStatus @default(COMPLETED)
-  paymentType     String     @default("CASH") // CASH, CREDIT
+  id                String     @id @default(uuid())
+  referenceNumber   String     @unique
+  createdById       String
+  createdBy         User       @relation("CreatedSales", fields: [createdById], references: [id])
+  customerId        String?
+  customer          Customer?  @relation(fields: [customerId], references: [id])
+  status            SaleStatus @default(COMPLETED)
+  paymentType       String     @default("CASH") // CASH, CREDIT
   totalAmount       Decimal    @default(0.00) @db.Decimal(12, 2)
   discount          Decimal    @default(0.00) @db.Decimal(12, 2)
   netAmount         Decimal    @default(0.00) @db.Decimal(12, 2)
@@ -264,11 +264,11 @@ model Sale {
   profit            Decimal    @default(0.00) @db.Decimal(12, 2)
   customerName      String?
   customerPhone     String?
-  note            String?
-  warehouseId     String?
-  warehouse       Warehouse? @relation(fields: [warehouseId], references: [id])
-  createdAt       DateTime   @default(now())
-  updatedAt       DateTime   @updatedAt
+  note              String?
+  warehouseId       String?
+  warehouse         Warehouse? @relation(fields: [warehouseId], references: [id])
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
 
   items SaleItem[]
 
@@ -316,7 +316,7 @@ model Expense {
 model PartyPayment {
   id            String    @id @default(uuid())
   receiptNumber String    @unique
-  type          String    // CUSTOMER_COLLECTION, SUPPLIER_PAYMENT
+  type          String // CUSTOMER_COLLECTION, SUPPLIER_PAYMENT
   customerId    String?
   customer      Customer? @relation(fields: [customerId], references: [id])
   supplierId    String?

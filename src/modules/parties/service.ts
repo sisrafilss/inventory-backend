@@ -93,7 +93,7 @@ export class PartiesService {
   static async createSupplier(
     actorId: string,
     data: {
-      code?: string | null;
+      code: string;
       name: string;
       companyName?: string | null;
       phone?: string | null;
@@ -103,18 +103,24 @@ export class PartiesService {
       isActive?: boolean;
     },
   ) {
-    const trimmedCode = data.code && data.code.trim() ? data.code.trim() : null;
-    if (trimmedCode) {
-      const existing = await prisma.supplier.findFirst({
-        where: { code: { equals: trimmedCode, mode: "insensitive" } },
-      });
-      if (existing) {
-        throw new AppError(
-          `Supplier code "${trimmedCode}" already exists.`,
-          400,
-          "DUPLICATE_CODE",
-        );
-      }
+    const trimmedCode = data.code ? data.code.trim() : "";
+    if (!trimmedCode) {
+      throw new AppError(
+        "Supplier code is mandatory and cannot be empty.",
+        400,
+        "CODE_REQUIRED",
+      );
+    }
+
+    const existing = await prisma.supplier.findFirst({
+      where: { code: { equals: trimmedCode, mode: "insensitive" } },
+    });
+    if (existing) {
+      throw new AppError(
+        `Supplier code "${trimmedCode}" already exists.`,
+        400,
+        "DUPLICATE_CODE",
+      );
     }
 
     const openingDue = data.openingDue || 0;
@@ -123,10 +129,14 @@ export class PartiesService {
       data: {
         code: trimmedCode,
         name: data.name.trim(),
-        companyName: data.companyName && data.companyName.trim() ? data.companyName.trim() : null,
+        companyName:
+          data.companyName && data.companyName.trim()
+            ? data.companyName.trim()
+            : null,
         phone: data.phone && data.phone.trim() ? data.phone.trim() : null,
         email: data.email && data.email.trim() ? data.email.trim() : null,
-        address: data.address && data.address.trim() ? data.address.trim() : null,
+        address:
+          data.address && data.address.trim() ? data.address.trim() : null,
         openingDue,
         currentDue: openingDue,
         isActive: data.isActive !== undefined ? data.isActive : true,
@@ -153,7 +163,7 @@ export class PartiesService {
     actorId: string,
     id: string,
     data: {
-      code?: string | null;
+      code?: string;
       name?: string;
       companyName?: string | null;
       phone?: string | null;
@@ -167,10 +177,17 @@ export class PartiesService {
       throw new AppError("Supplier not found.", 404, "SUPPLIER_NOT_FOUND");
     }
 
-    let codeUpdate: string | null | undefined = undefined;
+    let codeUpdate: string | undefined = undefined;
     if (data.code !== undefined) {
-      const trimmed = data.code && data.code.trim() ? data.code.trim() : null;
-      if (trimmed && trimmed.toLowerCase() !== supplier.code?.toLowerCase()) {
+      const trimmed = data.code ? data.code.trim() : "";
+      if (!trimmed) {
+        throw new AppError(
+          "Supplier code cannot be empty.",
+          400,
+          "CODE_REQUIRED",
+        );
+      }
+      if (trimmed.toLowerCase() !== supplier.code.toLowerCase()) {
         const existing = await prisma.supplier.findFirst({
           where: {
             code: { equals: trimmed, mode: "insensitive" },
@@ -469,7 +486,7 @@ export class PartiesService {
   static async createCustomer(
     actorId: string,
     data: {
-      code?: string | null;
+      code: string;
       name: string;
       phone?: string | null;
       email?: string | null;
@@ -478,18 +495,24 @@ export class PartiesService {
       isActive?: boolean;
     },
   ) {
-    const trimmedCode = data.code && data.code.trim() ? data.code.trim() : null;
-    if (trimmedCode) {
-      const existing = await prisma.customer.findFirst({
-        where: { code: { equals: trimmedCode, mode: "insensitive" } },
-      });
-      if (existing) {
-        throw new AppError(
-          `Customer code "${trimmedCode}" already exists.`,
-          400,
-          "DUPLICATE_CODE",
-        );
-      }
+    const trimmedCode = data.code ? data.code.trim() : "";
+    if (!trimmedCode) {
+      throw new AppError(
+        "Customer code is mandatory and cannot be empty.",
+        400,
+        "CODE_REQUIRED",
+      );
+    }
+
+    const existing = await prisma.customer.findFirst({
+      where: { code: { equals: trimmedCode, mode: "insensitive" } },
+    });
+    if (existing) {
+      throw new AppError(
+        `Customer code "${trimmedCode}" already exists.`,
+        400,
+        "DUPLICATE_CODE",
+      );
     }
 
     const openingDue = data.openingDue || 0;
@@ -500,7 +523,8 @@ export class PartiesService {
         name: data.name.trim(),
         phone: data.phone && data.phone.trim() ? data.phone.trim() : null,
         email: data.email && data.email.trim() ? data.email.trim() : null,
-        address: data.address && data.address.trim() ? data.address.trim() : null,
+        address:
+          data.address && data.address.trim() ? data.address.trim() : null,
         openingDue,
         currentDue: openingDue,
         isActive: data.isActive !== undefined ? data.isActive : true,
@@ -527,7 +551,7 @@ export class PartiesService {
     actorId: string,
     id: string,
     data: {
-      code?: string | null;
+      code?: string;
       name?: string;
       phone?: string | null;
       email?: string | null;
@@ -540,10 +564,17 @@ export class PartiesService {
       throw new AppError("Customer not found.", 404, "CUSTOMER_NOT_FOUND");
     }
 
-    let codeUpdate: string | null | undefined = undefined;
+    let codeUpdate: string | undefined = undefined;
     if (data.code !== undefined) {
-      const trimmed = data.code && data.code.trim() ? data.code.trim() : null;
-      if (trimmed && trimmed.toLowerCase() !== customer.code?.toLowerCase()) {
+      const trimmed = data.code ? data.code.trim() : "";
+      if (!trimmed) {
+        throw new AppError(
+          "Customer code cannot be empty.",
+          400,
+          "CODE_REQUIRED",
+        );
+      }
+      if (trimmed.toLowerCase() !== customer.code.toLowerCase()) {
         const existing = await prisma.customer.findFirst({
           where: {
             code: { equals: trimmed, mode: "insensitive" },

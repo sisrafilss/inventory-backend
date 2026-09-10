@@ -162,10 +162,12 @@ export class SalesService {
           });
         }
       } else {
+        const autoCode = `CUST-${Date.now().toString().slice(-6)}`;
         const newCustomer = await prisma.customer.create({
           data: {
+            code: autoCode,
             name: customerName,
-            phone: customerPhone || "N/A",
+            phone: customerPhone || null,
             address: customerAddress || null,
             openingDue: 0,
             currentDue: 0,
