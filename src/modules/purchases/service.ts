@@ -9,6 +9,7 @@ export interface CreatePurchaseItemInput {
   dpRate: number;
   commissionPercent: number;
   purchaseRate: number;
+  saleRate?: number | null;
 }
 
 export interface CreatePurchaseInput {
@@ -144,6 +145,10 @@ export class PurchasesService {
             dpRate: item.dpRate,
             commissionPercent: item.commissionPercent,
             purchaseRate: item.purchaseRate,
+            saleRate:
+              item.saleRate !== undefined && item.saleRate !== null
+                ? item.saleRate
+                : undefined,
             lineTotal,
           });
 
@@ -156,6 +161,12 @@ export class PurchasesService {
               dpRate: item.dpRate > 0 ? item.dpRate : undefined,
               commissionPercent:
                 item.commissionPercent > 0 ? item.commissionPercent : undefined,
+              sellingPrice:
+                item.saleRate !== undefined &&
+                item.saleRate !== null &&
+                Number(item.saleRate) > 0
+                  ? item.saleRate
+                  : undefined,
             },
           });
 

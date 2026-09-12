@@ -241,6 +241,7 @@ model PurchaseItem {
   dpRate            Decimal    @default(0.00) @db.Decimal(12, 2)
   commissionPercent Decimal    @default(0.00) @db.Decimal(5, 2)
   purchaseRate      Decimal    @default(0.00) @db.Decimal(12, 2)
+  saleRate          Decimal?   @default(0.00) @db.Decimal(12, 2)
   lineTotal         Decimal    @default(0.00) @db.Decimal(12, 2)
 
   @@index([purchaseId])

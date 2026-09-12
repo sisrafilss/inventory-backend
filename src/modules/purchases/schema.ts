@@ -7,6 +7,7 @@ export const purchaseItemInputSchema = z.object({
   dpRate: z.number().min(0, "DP Rate cannot be negative").default(0),
   commissionPercent: z.number().min(0).max(100).default(0),
   purchaseRate: z.number().min(0, "Purchase rate cannot be negative"),
+  saleRate: z.number().min(0, "Sale rate cannot be negative").optional().nullable(),
 });
 
 export const createPurchaseSchema = z.object({
