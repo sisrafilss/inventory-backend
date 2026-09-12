@@ -6,6 +6,8 @@ export interface CreatePurchaseItemInput {
   productId: string;
   warehouseId?: string;
   quantity: number;
+  packSize?: number | null;
+  looseQuantity?: number | null;
   dpRate: number;
   commissionPercent: number;
   purchaseRate: number;
@@ -131,6 +133,21 @@ export class PurchasesService {
             );
           }
 
+          if (
+            (!item.quantity || item.quantity === 0) &&
+            item.looseQuantity &&
+            item.looseQuantity > 0
+          ) {
+            const pSize = Number(
+              item.packSize && item.packSize > 0
+                ? item.packSize
+                : product.packSize
+                  ? Number(product.packSize)
+                  : 1,
+            );
+            item.quantity = Number((item.looseQuantity / pSize).toFixed(4));
+          }
+
           const lineTotal = Number(
             (item.quantity * item.purchaseRate).toFixed(2),
           );
@@ -143,6 +160,14 @@ export class PurchasesService {
             productId: item.productId,
             warehouseId: targetWarehouseId,
             quantity: item.quantity,
+            packSize:
+              item.packSize !== undefined && item.packSize !== null
+                ? item.packSize
+                : 1,
+            looseQuantity:
+              item.looseQuantity !== undefined && item.looseQuantity !== null
+                ? item.looseQuantity
+                : 0,
             dpRate: item.dpRate,
             commissionPercent: item.commissionPercent,
             purchaseRate: item.purchaseRate,
@@ -153,11 +178,17 @@ export class PurchasesService {
             lineTotal,
           });
 
-          // 1. Increment product master total quantity & update cost price and rates
+          // 1. Increment product master total quantity & update cost price, packSize and rates
           await tx.product.update({
             where: { id: item.productId },
             data: {
               quantity: { increment: item.quantity },
+              packSize:
+                item.packSize !== undefined &&
+                item.packSize !== null &&
+                item.packSize > 0
+                  ? item.packSize
+                  : undefined,
               costPrice: item.purchaseRate,
               dpRate: item.dpRate > 0 ? item.dpRate : undefined,
               commissionPercent:
@@ -190,14 +221,17 @@ export class PurchasesService {
           }
 
           // 3. Record StockMovement
+          const qtyBefore = Number(product.quantity);
+          const qtyAfter = Number((qtyBefore + item.quantity).toFixed(3));
+
           await tx.stockMovement.create({
             data: {
               productId: item.productId,
               warehouseId: targetWarehouseId || null,
               type: StockMovementType.RESTOCK,
-              quantityBefore: product.quantity,
+              quantityBefore: qtyBefore,
               quantityChange: item.quantity,
-              quantityAfter: product.quantity + item.quantity,
+              quantityAfter: qtyAfter,
               reason: `Purchase receipt (#${invoiceNumber})`,
               referenceType: "Purchase",
               performedById: actorId,
@@ -209,7 +243,9 @@ export class PurchasesService {
         const discount = Number(
           Math.max(0, Math.min(input.discount || 0, totalAmount)).toFixed(2),
         );
-        const netAmount = Number(Math.max(0, totalAmount - discount).toFixed(2));
+        const netAmount = Number(
+          Math.max(0, totalAmount - discount).toFixed(2),
+        );
         const paidAmount =
           input.paymentType === "CASH"
             ? netAmount

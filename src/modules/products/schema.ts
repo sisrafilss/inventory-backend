@@ -28,17 +28,24 @@ export const createProductSchema = z.object({
       .default(0),
     quantity: z
       .number()
-      .int()
       .min(0, "Initial quantity cannot be negative")
       .default(0),
     reorderLevel: z
       .number()
-      .int()
       .min(0, "Reorder level cannot be negative")
       .default(10),
+    packSize: z
+      .number()
+      .positive("Pack size must be greater than 0")
+      .optional()
+      .default(1),
     description: z.string().optional().default("None"),
     isActive: z.boolean().optional(),
-    warehouseId: z.string().uuid("Valid warehouse ID required").optional().nullable(),
+    warehouseId: z
+      .string()
+      .uuid("Valid warehouse ID required")
+      .optional()
+      .nullable(),
   }),
 });
 
@@ -56,7 +63,8 @@ export const updateProductSchema = z.object({
     dpRate: z.number().min(0).optional(),
     costPrice: z.number().min(0).optional(),
     sellingPrice: z.number().min(0).optional(),
-    reorderLevel: z.number().int().min(0).optional(),
+    reorderLevel: z.number().min(0).optional(),
+    packSize: z.number().positive().optional().nullable(),
     description: z.string().optional(),
     isActive: z.boolean().optional(),
   }),

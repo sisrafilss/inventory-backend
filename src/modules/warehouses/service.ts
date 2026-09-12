@@ -293,18 +293,20 @@ export class WarehousesService {
           },
         });
 
-        if (!sourceStock || sourceStock.quantity < data.quantity) {
+        const sourceQty = sourceStock ? Number(sourceStock.quantity) : 0;
+        if (!sourceStock || sourceQty < data.quantity) {
           throw new AppError(
-            `Insufficient stock in source warehouse. Available: ${sourceStock ? sourceStock.quantity : 0}`,
+            `Insufficient stock in source warehouse. Available: ${sourceQty}`,
             400,
             "INSUFFICIENT_STOCK",
           );
         }
 
+        const newSourceQty = Number((sourceQty - data.quantity).toFixed(3));
         // Deduct from source
         await tx.warehouseStock.update({
           where: { id: sourceStock.id },
-          data: { quantity: sourceStock.quantity - data.quantity },
+          data: { quantity: newSourceQty },
         });
 
         // Add to target
@@ -327,7 +329,7 @@ export class WarehousesService {
           where: { id: data.productId },
           select: { quantity: true },
         });
-        const currentTotalQty = product?.quantity || 0;
+        const currentTotalQty = product ? Number(product.quantity) : 0;
 
         // Record outward movement from source warehouse
         await tx.stockMovement.create({

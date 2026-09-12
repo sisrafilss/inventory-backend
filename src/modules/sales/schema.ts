@@ -20,19 +20,30 @@ export const createSaleSchema = z.object({
     note: z.string().optional(),
     items: z
       .array(
-        z.object({
-          productId: z.string().uuid("Invalid product ID"),
-          warehouseId: z.string().uuid("Invalid warehouse ID").optional(),
-          quantity: z.number().int().min(1, "Quantity must be at least 1"),
-          unitPrice: z
-            .number()
-            .min(0, "Unit price cannot be negative")
-            .optional(),
-          purchaseCost: z
-            .number()
-            .min(0, "Purchase cost cannot be negative")
-            .optional(),
-        }),
+        z
+          .object({
+            productId: z.string().uuid("Invalid product ID"),
+            warehouseId: z.string().uuid("Invalid warehouse ID").optional(),
+            quantity: z.number().min(0, "Quantity cannot be negative"),
+            packSize: z.number().positive().optional().nullable(),
+            looseQuantity: z.number().min(0).optional().nullable(),
+            unitPrice: z
+              .number()
+              .min(0, "Unit price cannot be negative")
+              .optional(),
+            purchaseCost: z
+              .number()
+              .min(0, "Purchase cost cannot be negative")
+              .optional(),
+          })
+          .refine(
+            (item) =>
+              item.quantity > 0 ||
+              (item.looseQuantity !== undefined &&
+                item.looseQuantity !== null &&
+                item.looseQuantity > 0),
+            { message: "Quantity and loose quantity cannot both be zero." },
+          ),
       )
       .min(1, "Sale must include at least one item"),
   }),

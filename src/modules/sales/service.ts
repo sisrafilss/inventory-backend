@@ -17,10 +17,21 @@ export class SalesService {
     const items = sale.items.map((i: any) => {
       const unitPrice = Number(i.unitPrice);
       const lineTotal = Number(i.lineTotal);
+      const quantity = Number(i.quantity);
+      const packSize = i.packSize ? Number(i.packSize) : 1;
+      const looseQuantity = i.looseQuantity ? Number(i.looseQuantity) : 0;
       const purchaseCost = Number(i.purchaseCost || 0);
-      const lineCost = purchaseCost * i.quantity;
+      const lineCost = purchaseCost * quantity;
       invoiceCost += lineCost;
       const profit = lineTotal - lineCost;
+
+      const product = i.product
+        ? {
+            ...i.product,
+            quantity: Number(i.product.quantity),
+            reorderLevel: Number(i.product.reorderLevel),
+          }
+        : undefined;
 
       if (isManager) {
         return {
@@ -29,8 +40,10 @@ export class SalesService {
           productId: i.productId,
           warehouseId: i.warehouseId,
           warehouse: i.warehouse,
-          product: i.product,
-          quantity: i.quantity,
+          product,
+          quantity,
+          packSize,
+          looseQuantity,
           unitPrice,
           lineTotal,
         };
@@ -42,8 +55,10 @@ export class SalesService {
         productId: i.productId,
         warehouseId: i.warehouseId,
         warehouse: i.warehouse,
-        product: i.product,
-        quantity: i.quantity,
+        product,
+        quantity,
+        packSize,
+        looseQuantity,
         purchaseCost,
         unitPrice,
         lineTotal,
@@ -92,6 +107,8 @@ export class SalesService {
         productId: string;
         warehouseId?: string;
         quantity: number;
+        packSize?: number | null;
+        looseQuantity?: number | null;
         unitPrice?: number;
         purchaseCost?: number;
       }>;
@@ -218,7 +235,7 @@ export class SalesService {
     >();
     for (const ws of warehouseStocks) {
       whStockMap.set(`${ws.warehouseId}_${ws.productId}`, {
-        quantity: ws.quantity,
+        quantity: Number(ws.quantity),
         warehouseName: ws.warehouse?.name || "Warehouse",
       });
     }
@@ -232,6 +249,20 @@ export class SalesService {
           "PRODUCT_NOT_FOUND",
         );
       }
+      if (
+        (!item.quantity || item.quantity === 0) &&
+        item.looseQuantity &&
+        item.looseQuantity > 0
+      ) {
+        const pSize = Number(
+          item.packSize && item.packSize > 0
+            ? item.packSize
+            : prod.packSize
+              ? Number(prod.packSize)
+              : 1,
+        );
+        item.quantity = Number((item.looseQuantity / pSize).toFixed(4));
+      }
       if (!prod.isActive) {
         throw new AppError(
           `Product "${prod.name}" is currently inactive and cannot be sold.`,
@@ -239,9 +270,10 @@ export class SalesService {
           "PRODUCT_INACTIVE",
         );
       }
-      if (prod.quantity < item.quantity) {
+      const prodQty = Number(prod.quantity);
+      if (prodQty < item.quantity) {
         throw new AppError(
-          `Insufficient total stock for "${prod.name}" (SKU: ${prod.sku}). Available across all warehouses: ${prod.quantity}, Required: ${item.quantity}.`,
+          `Insufficient total stock for "${prod.name}" (SKU: ${prod.sku}). Available across all warehouses: ${prodQty}, Required: ${item.quantity}.`,
           400,
           "INSUFFICIENT_STOCK",
         );
@@ -289,6 +321,14 @@ export class SalesService {
         productId: item.productId,
         warehouseId: targetWhId,
         quantity: item.quantity,
+        packSize:
+          item.packSize !== undefined && item.packSize !== null
+            ? item.packSize
+            : 1,
+        looseQuantity:
+          item.looseQuantity !== undefined && item.looseQuantity !== null
+            ? item.looseQuantity
+            : 0,
         purchaseCost,
         unitPrice,
         lineTotal,
@@ -395,7 +435,8 @@ export class SalesService {
             where: { id: item.productId },
           });
 
-          if (!product || product.quantity < item.quantity) {
+          const currentProdQty = product ? Number(product.quantity) : 0;
+          if (!product || currentProdQty < item.quantity) {
             throw new AppError(
               `Insufficient stock for item "${item.productId}".`,
               400,
@@ -403,8 +444,8 @@ export class SalesService {
             );
           }
 
-          const qtyBefore = product.quantity;
-          const qtyAfter = qtyBefore - item.quantity;
+          const qtyBefore = currentProdQty;
+          const qtyAfter = Number((qtyBefore - item.quantity).toFixed(3));
 
           // Global product stock decrement
           await tx.product.update({
@@ -425,17 +466,19 @@ export class SalesService {
               },
             });
 
-            if (!whStock || whStock.quantity < item.quantity) {
+            const currentWhQty = whStock ? Number(whStock.quantity) : 0;
+            if (!whStock || currentWhQty < item.quantity) {
               throw new AppError(
-                `Insufficient stock for item "${item.productId}" in warehouse. Available: ${whStock ? whStock.quantity : 0}, Required: ${item.quantity}.`,
+                `Insufficient stock for item "${item.productId}" in warehouse. Available: ${currentWhQty}, Required: ${item.quantity}.`,
                 400,
                 "INSUFFICIENT_WAREHOUSE_STOCK",
               );
             }
 
+            const newWhQty = Number((currentWhQty - item.quantity).toFixed(3));
             await tx.warehouseStock.update({
               where: { id: whStock.id },
-              data: { quantity: { decrement: item.quantity } },
+              data: { quantity: newWhQty },
             });
           }
 

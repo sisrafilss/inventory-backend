@@ -38,7 +38,7 @@ export const transferStockSchema = z.object({
     sourceWarehouseId: z.string().uuid("Invalid source warehouse ID"),
     targetWarehouseId: z.string().uuid("Invalid target warehouse ID"),
     productId: z.string().uuid("Invalid product ID"),
-    quantity: z.number().int().positive("Quantity must be greater than 0"),
+    quantity: z.number().positive("Quantity must be greater than 0"),
     note: z.string().max(500).optional(),
   }),
 });

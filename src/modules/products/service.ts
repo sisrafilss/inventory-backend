@@ -108,20 +108,29 @@ export class ProductsService {
 
     // Format products with stockStatus
     const items = products.map((p) => {
+      const quantity = Number(p.quantity);
+      const reorderLevel = Number(p.reorderLevel);
       let stockStatus: "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK" = "IN_STOCK";
-      if (p.quantity <= 0) {
+      if (quantity <= 0) {
         stockStatus = "OUT_OF_STOCK";
-      } else if (p.quantity <= p.reorderLevel) {
+      } else if (quantity <= reorderLevel) {
         stockStatus = "LOW_STOCK";
       }
 
       return {
         ...p,
+        quantity,
+        reorderLevel,
+        packSize: p.packSize ? Number(p.packSize) : 1,
         costPrice: Number(p.costPrice),
         dpRate: Number(p.dpRate),
         commissionPercent: Number(p.commissionPercent || 0),
         sellingPrice: Number(p.sellingPrice),
         stockStatus,
+        warehouseStocks: p.warehouseStocks?.map((ws) => ({
+          ...ws,
+          quantity: Number(ws.quantity),
+        })),
       };
     });
 
@@ -166,20 +175,29 @@ export class ProductsService {
       throw new AppError("Product not found.", 404, "PRODUCT_NOT_FOUND");
     }
 
+    const quantity = Number(product.quantity);
+    const reorderLevel = Number(product.reorderLevel);
     let stockStatus: "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK" = "IN_STOCK";
-    if (product.quantity <= 0) {
+    if (quantity <= 0) {
       stockStatus = "OUT_OF_STOCK";
-    } else if (product.quantity <= product.reorderLevel) {
+    } else if (quantity <= reorderLevel) {
       stockStatus = "LOW_STOCK";
     }
 
     return {
       ...product,
+      quantity,
+      reorderLevel,
+      packSize: product.packSize ? Number(product.packSize) : 1,
       costPrice: Number(product.costPrice),
       dpRate: Number(product.dpRate),
       commissionPercent: Number(product.commissionPercent || 0),
       sellingPrice: Number(product.sellingPrice),
       stockStatus,
+      warehouseStocks: product.warehouseStocks?.map((ws) => ({
+        ...ws,
+        quantity: Number(ws.quantity),
+      })),
     };
   }
 
@@ -221,20 +239,29 @@ export class ProductsService {
       );
     }
 
+    const quantity = Number(product.quantity);
+    const reorderLevel = Number(product.reorderLevel);
     let stockStatus: "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK" = "IN_STOCK";
-    if (product.quantity <= 0) {
+    if (quantity <= 0) {
       stockStatus = "OUT_OF_STOCK";
-    } else if (product.quantity <= product.reorderLevel) {
+    } else if (quantity <= reorderLevel) {
       stockStatus = "LOW_STOCK";
     }
 
     return {
       ...product,
+      quantity,
+      reorderLevel,
+      packSize: product.packSize ? Number(product.packSize) : 1,
       costPrice: Number(product.costPrice),
       dpRate: Number(product.dpRate),
       commissionPercent: Number(product.commissionPercent || 0),
       sellingPrice: Number(product.sellingPrice),
       stockStatus,
+      warehouseStocks: product.warehouseStocks?.map((ws) => ({
+        ...ws,
+        quantity: Number(ws.quantity),
+      })),
     };
   }
 
@@ -314,6 +341,7 @@ export class ProductsService {
       sellingPrice?: number;
       quantity?: number;
       reorderLevel?: number;
+      packSize?: number;
       description?: string;
       isActive?: boolean;
     },
@@ -427,6 +455,7 @@ export class ProductsService {
             quantity: initialQty,
             reorderLevel:
               data.reorderLevel !== undefined ? data.reorderLevel : 10,
+            packSize: data.packSize !== undefined ? data.packSize : 1,
             description: data.description?.trim() || "None",
             isActive: data.isActive !== undefined ? data.isActive : true,
           },
@@ -481,6 +510,9 @@ export class ProductsService {
 
     return {
       ...product,
+      quantity: Number(product.quantity),
+      reorderLevel: Number(product.reorderLevel),
+      packSize: product.packSize ? Number(product.packSize) : 1,
       costPrice: Number(product.costPrice),
       dpRate: Number(product.dpRate),
       sellingPrice: Number(product.sellingPrice),
@@ -501,6 +533,7 @@ export class ProductsService {
       costPrice?: number;
       sellingPrice?: number;
       reorderLevel?: number;
+      packSize?: number | null;
       description?: string;
       isActive?: boolean;
     },
@@ -582,7 +615,7 @@ export class ProductsService {
         ...(data.companyId !== undefined
           ? { companyId: data.companyId || null }
           : {}),
-        ...(data.unit ? { unit: data.unit.trim().toLowerCase() } : {}),
+        ...(data.unit ? { unit: data.unit.trim() } : {}),
         ...(data.dpRate !== undefined ? { dpRate: data.dpRate } : {}),
         ...(data.costPrice !== undefined ? { costPrice: data.costPrice } : {}),
         ...(data.sellingPrice !== undefined
@@ -590,6 +623,9 @@ export class ProductsService {
           : {}),
         ...(data.reorderLevel !== undefined
           ? { reorderLevel: data.reorderLevel }
+          : {}),
+        ...(data.packSize !== undefined
+          ? { packSize: data.packSize || 1 }
           : {}),
         ...(data.description !== undefined
           ? { description: data.description.trim() || null }
@@ -608,6 +644,9 @@ export class ProductsService {
 
     return {
       ...updated,
+      quantity: Number(updated.quantity),
+      reorderLevel: Number(updated.reorderLevel),
+      packSize: updated.packSize ? Number(updated.packSize) : 1,
       costPrice: Number(updated.costPrice),
       dpRate: Number(updated.dpRate),
       sellingPrice: Number(updated.sellingPrice),

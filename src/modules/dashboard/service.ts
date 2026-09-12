@@ -71,12 +71,14 @@ export class DashboardService {
     let outOfStockCount = 0;
 
     for (const p of allActiveProducts) {
-      totalQuantity += p.quantity;
-      totalCostValue += p.quantity * Number(p.costPrice);
-      totalRetailValue += p.quantity * Number(p.sellingPrice);
-      if (p.quantity <= 0) {
+      const qty = Number(p.quantity);
+      const reorder = Number(p.reorderLevel);
+      totalQuantity += qty;
+      totalCostValue += qty * Number(p.costPrice);
+      totalRetailValue += qty * Number(p.sellingPrice);
+      if (qty <= 0) {
         outOfStockCount++;
-      } else if (p.quantity <= p.reorderLevel) {
+      } else if (qty <= reorder) {
         lowStockCount++;
       }
     }

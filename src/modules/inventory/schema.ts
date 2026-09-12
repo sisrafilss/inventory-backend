@@ -13,10 +13,7 @@ export const createAdjustmentSchema = z.object({
       StockMovementType.CORRECTION,
       StockMovementType.OTHER,
     ]),
-    quantity: z
-      .number()
-      .int()
-      .refine((val) => val !== 0, "Quantity cannot be zero"),
+    quantity: z.number().refine((val) => val !== 0, "Quantity cannot be zero"),
     reason: z.string().min(3, "Reason/note must be at least 3 characters"),
   }),
 });

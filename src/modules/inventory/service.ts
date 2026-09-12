@@ -57,7 +57,9 @@ export class InventoryService {
     }
 
     const targetWarehouse = effectiveWarehouseId
-      ? await prisma.warehouse.findUnique({ where: { id: effectiveWarehouseId } })
+      ? await prisma.warehouse.findUnique({
+          where: { id: effectiveWarehouseId },
+        })
       : (await prisma.warehouse.findFirst({
           where: { isDefault: true, isActive: true },
         })) ||
@@ -78,8 +80,8 @@ export class InventoryService {
           throw new AppError("Product not found.", 404, "PRODUCT_NOT_FOUND");
         }
 
-        const qtyBefore = product.quantity;
-        const qtyAfter = qtyBefore + delta;
+        const qtyBefore = Number(product.quantity);
+        const qtyAfter = Number((qtyBefore + delta).toFixed(3));
 
         if (qtyAfter < 0) {
           throw new AppError(
@@ -100,8 +102,8 @@ export class InventoryService {
             },
           });
 
-          const currentWhQty = whStock ? whStock.quantity : 0;
-          const newWhQty = currentWhQty + delta;
+          const currentWhQty = whStock ? Number(whStock.quantity) : 0;
+          const newWhQty = Number((currentWhQty + delta).toFixed(3));
 
           if (newWhQty < 0) {
             throw new AppError(
@@ -178,10 +180,20 @@ export class InventoryService {
         return {
           product: {
             ...updatedProduct,
+            quantity: Number(updatedProduct.quantity),
+            reorderLevel: Number(updatedProduct.reorderLevel),
+            packSize: updatedProduct.packSize
+              ? Number(updatedProduct.packSize)
+              : 1,
             costPrice: Number(updatedProduct.costPrice),
             sellingPrice: Number(updatedProduct.sellingPrice),
           },
-          movement,
+          movement: {
+            ...movement,
+            quantityBefore: Number(movement.quantityBefore),
+            quantityChange: Number(movement.quantityChange),
+            quantityAfter: Number(movement.quantityAfter),
+          },
         };
       },
       { maxWait: 10000, timeout: 30000 },
@@ -256,7 +268,12 @@ export class InventoryService {
     ]);
 
     return {
-      movements,
+      movements: movements.map((m) => ({
+        ...m,
+        quantityBefore: Number(m.quantityBefore),
+        quantityChange: Number(m.quantityChange),
+        quantityAfter: Number(m.quantityAfter),
+      })),
       meta: {
         page,
         limit,
@@ -291,15 +308,23 @@ export class InventoryService {
       ];
     }
 
-    const [totalProducts, outOfStockCount, aggregates, totalFiltered, products] = await Promise.all([
+    const [
+      totalProducts,
+      outOfStockCount,
+      aggregates,
+      totalFiltered,
+      products,
+    ] = await Promise.all([
       prisma.product.count({ where: { isActive: true } }),
       prisma.product.count({ where: { isActive: true, quantity: { lte: 0 } } }),
-      prisma.$queryRaw<Array<{
-        totalQuantity: number | bigint | null;
-        totalCostValue: number | null;
-        totalRetailValue: number | null;
-        lowStockCount: number | bigint | null;
-      }>>`
+      prisma.$queryRaw<
+        Array<{
+          totalQuantity: number | bigint | null;
+          totalCostValue: number | null;
+          totalRetailValue: number | null;
+          lowStockCount: number | bigint | null;
+        }>
+      >`
         SELECT 
           COALESCE(SUM(quantity), 0) AS "totalQuantity",
           COALESCE(SUM(quantity * "costPrice"), 0) AS "totalCostValue",
@@ -330,19 +355,23 @@ export class InventoryService {
     };
 
     const formattedProducts = products.map((p) => {
-      const qty = p.quantity;
+      const qty = Number(p.quantity);
+      const reorder = Number(p.reorderLevel);
       const cost = Number(p.costPrice);
       const selling = Number(p.sellingPrice);
 
       let stockStatus: "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK" = "IN_STOCK";
       if (qty <= 0) {
         stockStatus = "OUT_OF_STOCK";
-      } else if (qty <= p.reorderLevel) {
+      } else if (qty <= reorder) {
         stockStatus = "LOW_STOCK";
       }
 
       return {
         ...p,
+        quantity: qty,
+        reorderLevel: reorder,
+        packSize: p.packSize ? Number(p.packSize) : 1,
         costPrice: cost,
         sellingPrice: selling,
         stockStatus,

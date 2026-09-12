@@ -1,18 +1,29 @@
 import { z } from "zod";
 
-export const purchaseItemInputSchema = z.object({
-  productId: z.string().uuid("Invalid product ID"),
-  warehouseId: z.string().uuid("Invalid warehouse ID").optional(),
-  quantity: z.number().int().positive("Quantity must be greater than 0"),
-  dpRate: z.number().min(0, "DP Rate cannot be negative").default(0),
-  commissionPercent: z.number().min(0).max(100).default(0),
-  purchaseRate: z.number().min(0, "Purchase rate cannot be negative"),
-  saleRate: z
-    .number()
-    .min(0, "Sale rate cannot be negative")
-    .optional()
-    .nullable(),
-});
+export const purchaseItemInputSchema = z
+  .object({
+    productId: z.string().uuid("Invalid product ID"),
+    warehouseId: z.string().uuid("Invalid warehouse ID").optional(),
+    quantity: z.number().min(0, "Quantity cannot be negative"),
+    packSize: z.number().positive().optional().nullable(),
+    looseQuantity: z.number().min(0).optional().nullable(),
+    dpRate: z.number().min(0, "DP Rate cannot be negative").default(0),
+    commissionPercent: z.number().min(0).max(100).default(0),
+    purchaseRate: z.number().min(0, "Purchase rate cannot be negative"),
+    saleRate: z
+      .number()
+      .min(0, "Sale rate cannot be negative")
+      .optional()
+      .nullable(),
+  })
+  .refine(
+    (item) =>
+      item.quantity > 0 ||
+      (item.looseQuantity !== undefined &&
+        item.looseQuantity !== null &&
+        item.looseQuantity > 0),
+    { message: "Quantity and loose quantity cannot both be zero." },
+  );
 
 export const createPurchaseSchema = z.object({
   body: z.object({

@@ -100,14 +100,15 @@ export class ReportsService {
     });
 
     const report = products.map((p) => {
-      const qty = p.quantity;
+      const qty = Number(p.quantity);
       const cost = Number(p.costPrice);
       const selling = Number(p.sellingPrice);
+      const reorderLevel = Number(p.reorderLevel);
 
       let stockStatus: "IN_STOCK" | "LOW_STOCK" | "OUT_OF_STOCK" = "IN_STOCK";
       if (qty <= 0) {
         stockStatus = "OUT_OF_STOCK";
-      } else if (qty <= p.reorderLevel) {
+      } else if (qty <= reorderLevel) {
         stockStatus = "LOW_STOCK";
       }
 
@@ -118,7 +119,7 @@ export class ReportsService {
         category: p.category?.name || "General",
         unit: p.unit,
         currentQuantity: qty,
-        reorderLevel: p.reorderLevel,
+        reorderLevel,
         costPrice: cost,
         sellingPrice: selling,
         totalCostValue: (qty * cost).toFixed(2),
@@ -371,7 +372,7 @@ export class ReportsService {
     const items = sale.items.map((item) => {
       const unitCost = Number(item.purchaseCost || 0);
       const unitPrice = Number(item.unitPrice);
-      const lineCost = unitCost * item.quantity;
+      const lineCost = unitCost * Number(item.quantity);
       const lineTotal = Number(item.lineTotal);
       const lineProfit = lineTotal - lineCost;
       const profitMargin = lineTotal > 0 ? (lineProfit / lineTotal) * 100 : 0;
@@ -450,7 +451,10 @@ export class ReportsService {
         address: wh.address,
         isDefault: wh.isDefault,
         totalItemsTracked: filteredStocks.length,
-        totalQuantity: filteredStocks.reduce((acc, s) => acc + s.quantity, 0),
+        totalQuantity: filteredStocks.reduce(
+          (acc, s) => acc + Number(s.quantity),
+          0,
+        ),
         stocks: filteredStocks.map((s) => ({
           id: s.id,
           productId: s.productId,
@@ -459,7 +463,7 @@ export class ReportsService {
           unit: s.product.unit,
           company: s.product.company?.name || "N/A",
           category: s.product.category?.name || "N/A",
-          quantity: s.quantity,
+          quantity: Number(s.quantity),
           sellingPrice: Number(s.product.sellingPrice),
         })),
       };
@@ -533,13 +537,13 @@ export class ReportsService {
       let saleCost = 0;
       const items = s.items.map((i) => {
         const pCost = Number(i.purchaseCost || 0);
-        const lineCost = pCost * i.quantity;
+        const lineCost = pCost * Number(i.quantity);
         saleCost += lineCost;
 
         return {
           productId: i.productId,
           productName: i.product.name,
-          quantity: i.quantity,
+          quantity: Number(i.quantity),
           unitPrice: Number(i.unitPrice),
           lineTotal: Number(i.lineTotal),
           ...(!isManager ? { unitCost: pCost, lineCost } : {}),
@@ -858,7 +862,8 @@ export class ReportsService {
     for (const sale of sales) {
       totalSale += Number(sale.totalAmount);
       for (const item of sale.items) {
-        costOfGoodsSold += Number(item.purchaseCost || 0) * item.quantity;
+        costOfGoodsSold +=
+          Number(item.purchaseCost || 0) * Number(item.quantity);
       }
     }
 
@@ -880,9 +885,12 @@ export class ReportsService {
     for (const p of allProducts) {
       let qty = 0;
       if (query.warehouseId) {
-        qty = p.warehouseStocks.reduce((sum, ws) => sum + ws.quantity, 0);
+        qty = p.warehouseStocks.reduce(
+          (sum, ws) => sum + Number(ws.quantity),
+          0,
+        );
       } else {
-        qty = p.quantity;
+        qty = Number(p.quantity);
       }
       productQtyMap.set(p.id, Math.max(0, qty));
     }
@@ -892,7 +900,7 @@ export class ReportsService {
       for (const sm of stockMovements) {
         if (sm.createdAt > endDateTime) {
           const cur = productQtyMap.get(sm.productId) || 0;
-          productQtyMap.set(sm.productId, cur - sm.quantityChange);
+          productQtyMap.set(sm.productId, cur - Number(sm.quantityChange));
         }
       }
     }
@@ -917,7 +925,7 @@ export class ReportsService {
           (!endDateTime || sm.createdAt <= endDateTime)
         ) {
           const cur = startQtyMap.get(sm.productId) || 0;
-          startQtyMap.set(sm.productId, cur - sm.quantityChange);
+          startQtyMap.set(sm.productId, cur - Number(sm.quantityChange));
         }
       }
       for (const p of allProducts) {
@@ -1123,7 +1131,7 @@ export class ReportsService {
           name: item.product.name,
           company: item.product.company?.name || "—",
           category: item.product.category?.name || "—",
-          quantity: item.quantity,
+          quantity: Number(item.quantity),
           rate,
           amount,
           invoice: item.sale.referenceNumber,
@@ -1195,7 +1203,7 @@ export class ReportsService {
           name: item.product.name,
           company: item.product.company?.name || "—",
           category: item.product.category?.name || "—",
-          quantity: item.quantity,
+          quantity: Number(item.quantity),
           rate,
           amount,
           invoice: item.purchase.invoiceNumber,

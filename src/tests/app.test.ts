@@ -69,6 +69,28 @@ describe("Inventory Management System — Acceptance Scenarios (Super Admin, Adm
   }, 60000);
 
   afterAll(async () => {
+    try {
+      if (testProductId) {
+        await prisma.stockMovement.deleteMany({ where: { productId: testProductId } });
+        await prisma.warehouseStock.deleteMany({ where: { productId: testProductId } });
+        await prisma.saleItem.deleteMany({ where: { productId: testProductId } });
+        await prisma.product.deleteMany({ where: { id: testProductId } });
+      }
+      if (testCategoryId) {
+        await prisma.category.deleteMany({ where: { id: testCategoryId } });
+      }
+      await prisma.sale.deleteMany({
+        where: { referenceNumber: { startsWith: "SAL-" } },
+      });
+      await prisma.customer.deleteMany({
+        where: { name: { in: ["Alice Customer", "Overbuyer Customer"] } },
+      });
+      await prisma.user.deleteMany({
+        where: { email: { contains: "@inventory.test" } },
+      });
+    } catch (e) {
+      console.error("Cleanup error in app.test.ts:", e);
+    }
     await prisma.$disconnect();
   });
 
@@ -92,6 +114,7 @@ describe("Inventory Management System — Acceptance Scenarios (Super Admin, Adm
     });
 
     it("should create a Manager with mustChangePassword = true", async () => {
+      const wh = await prisma.warehouse.findFirst();
       const res = await request(app)
         .post("/api/users")
         .set("Authorization", `Bearer ${adminToken}`)
@@ -100,6 +123,7 @@ describe("Inventory Management System — Acceptance Scenarios (Super Admin, Adm
           email: managerEmail,
           role: "MANAGER",
           password: initialPassword,
+          warehouseId: wh?.id,
         });
 
       expect(res.status).toBe(201);
