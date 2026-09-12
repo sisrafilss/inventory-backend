@@ -290,7 +290,10 @@ describe("Fractional & Packaging Unit Stock Management", () => {
       .set("Authorization", `Bearer ${adminToken}`);
 
     expect(prodAfterSale.status).toBe(200);
-    expect(Number(prodAfterSale.body.data.quantity)).toBeCloseTo(2 - (10 / 72), 2);
+    expect(Number(prodAfterSale.body.data.quantity)).toBeCloseTo(
+      2 - 10 / 72,
+      2,
+    );
   });
 
   it("Scenario 4: Validation prevents both main quantity and loose quantity from being zero", async () => {

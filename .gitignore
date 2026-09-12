@@ -5,3 +5,4 @@ dist
 coverage
 .DS_Store
 *-backup.json
+prisma/neon_*.json

@@ -71,9 +71,15 @@ describe("Inventory Management System — Acceptance Scenarios (Super Admin, Adm
   afterAll(async () => {
     try {
       if (testProductId) {
-        await prisma.stockMovement.deleteMany({ where: { productId: testProductId } });
-        await prisma.warehouseStock.deleteMany({ where: { productId: testProductId } });
-        await prisma.saleItem.deleteMany({ where: { productId: testProductId } });
+        await prisma.stockMovement.deleteMany({
+          where: { productId: testProductId },
+        });
+        await prisma.warehouseStock.deleteMany({
+          where: { productId: testProductId },
+        });
+        await prisma.saleItem.deleteMany({
+          where: { productId: testProductId },
+        });
         await prisma.product.deleteMany({ where: { id: testProductId } });
       }
       if (testCategoryId) {
