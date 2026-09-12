@@ -50,6 +50,7 @@ export const createCustomerSchema = z.object({
       .min(1, "Customer code is required")
       .max(50),
     name: z.string().min(2, "Customer name is required").max(100),
+    companyName: z.string().max(100).optional().nullable(),
     phone: z.string().max(30).optional().nullable().or(z.literal("")),
     email: z
       .string()
@@ -75,6 +76,7 @@ export const updateCustomerSchema = z.object({
       .max(50)
       .optional(),
     name: z.string().min(2).max(100).optional(),
+    companyName: z.string().max(100).optional().nullable(),
     phone: z.string().max(30).optional().nullable().or(z.literal("")),
     email: z.string().email().optional().nullable().or(z.literal("")),
     address: z.string().max(300).optional().nullable(),

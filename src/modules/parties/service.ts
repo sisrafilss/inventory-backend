@@ -291,6 +291,7 @@ export class PartiesService {
       where.OR = [
         { code: { contains: q, mode: "insensitive" } },
         { name: { contains: q, mode: "insensitive" } },
+        { companyName: { contains: q, mode: "insensitive" } },
         { phone: { contains: q, mode: "insensitive" } },
         { address: { contains: q, mode: "insensitive" } },
       ];
@@ -354,6 +355,7 @@ export class PartiesService {
           { name: { equals: trimmed, mode: "insensitive" } },
           { name: { startsWith: trimmed, mode: "insensitive" } },
           { name: { contains: trimmed, mode: "insensitive" } },
+          { companyName: { contains: trimmed, mode: "insensitive" } },
         ],
       },
     });
@@ -488,6 +490,7 @@ export class PartiesService {
     data: {
       code: string;
       name: string;
+      companyName?: string | null;
       phone?: string | null;
       email?: string | null;
       address?: string | null;
@@ -521,6 +524,10 @@ export class PartiesService {
       data: {
         code: trimmedCode,
         name: data.name.trim(),
+        companyName:
+          data.companyName && data.companyName.trim()
+            ? data.companyName.trim()
+            : null,
         phone: data.phone && data.phone.trim() ? data.phone.trim() : null,
         email: data.email && data.email.trim() ? data.email.trim() : null,
         address:
@@ -539,6 +546,7 @@ export class PartiesService {
       metadata: {
         code: customer.code,
         name: customer.name,
+        companyName: customer.companyName,
         phone: customer.phone,
         currentDue: customer.currentDue,
       },
@@ -553,6 +561,7 @@ export class PartiesService {
     data: {
       code?: string;
       name?: string;
+      companyName?: string | null;
       phone?: string | null;
       email?: string | null;
       address?: string | null;
@@ -597,6 +606,12 @@ export class PartiesService {
       data: {
         ...(codeUpdate !== undefined && { code: codeUpdate }),
         ...(data.name && { name: data.name.trim() }),
+        ...(data.companyName !== undefined && {
+          companyName:
+            data.companyName && data.companyName.trim()
+              ? data.companyName.trim()
+              : null,
+        }),
         ...(data.phone !== undefined && {
           phone: data.phone ? data.phone.trim() : null,
         }),

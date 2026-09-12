@@ -182,23 +182,25 @@ model Supplier {
 }
 
 model Customer {
-  id         String   @id @default(uuid())
-  code       String   @unique
-  name       String
-  phone      String?
-  email      String?
-  address    String?
-  openingDue Decimal  @default(0.00) @db.Decimal(12, 2)
-  currentDue Decimal  @default(0.00) @db.Decimal(12, 2)
-  isActive   Boolean  @default(true)
-  createdAt  DateTime @default(now())
-  updatedAt  DateTime @updatedAt
+  id          String   @id @default(uuid())
+  code        String   @unique
+  name        String
+  companyName String?
+  phone       String?
+  email       String?
+  address     String?
+  openingDue  Decimal  @default(0.00) @db.Decimal(12, 2)
+  currentDue  Decimal  @default(0.00) @db.Decimal(12, 2)
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   sales    Sale[]
   payments PartyPayment[]
 
   @@index([code])
   @@index([name])
+  @@index([companyName])
   @@index([phone])
   @@index([isActive])
 }
