@@ -42,3 +42,4 @@ ALTER TABLE "StockMovement" ALTER COLUMN "quantityChange" TYPE DECIMAL(12, 3) US
 ALTER TABLE "StockMovement" ALTER COLUMN "quantityAfter" TYPE DECIMAL(12, 3) USING "quantityAfter"::DECIMAL(12, 3);
 
 COMMIT;
+
