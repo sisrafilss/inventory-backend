@@ -7,7 +7,11 @@ export const purchaseItemInputSchema = z.object({
   dpRate: z.number().min(0, "DP Rate cannot be negative").default(0),
   commissionPercent: z.number().min(0).max(100).default(0),
   purchaseRate: z.number().min(0, "Purchase rate cannot be negative"),
-  saleRate: z.number().min(0, "Sale rate cannot be negative").optional().nullable(),
+  saleRate: z
+    .number()
+    .min(0, "Sale rate cannot be negative")
+    .optional()
+    .nullable(),
 });
 
 export const createPurchaseSchema = z.object({
@@ -17,7 +21,10 @@ export const createPurchaseSchema = z.object({
     supplierName: z.string().max(100).optional(),
     paymentType: z.enum(["CASH", "SUPPLIER"]).default("CASH"),
     paidAmount: z.number().min(0).default(0),
-    items: z.array(purchaseItemInputSchema).min(1, "Purchase must contain at least one item"),
+    discount: z.number().min(0).default(0).optional(),
+    items: z
+      .array(purchaseItemInputSchema)
+      .min(1, "Purchase must contain at least one item"),
     note: z.string().max(500).optional(),
     warehouseId: z.string().uuid("Invalid default warehouse ID").optional(),
   }),

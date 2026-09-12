@@ -18,6 +18,7 @@ export interface CreatePurchaseInput {
   supplierName?: string;
   paymentType: "CASH" | "SUPPLIER";
   paidAmount?: number;
+  discount?: number;
   items: CreatePurchaseItemInput[];
   note?: string;
   warehouseId?: string;
@@ -205,12 +206,16 @@ export class PurchasesService {
         }
 
         totalAmount = Number(totalAmount.toFixed(2));
+        const discount = Number(
+          Math.max(0, Math.min(input.discount || 0, totalAmount)).toFixed(2),
+        );
+        const netAmount = Number(Math.max(0, totalAmount - discount).toFixed(2));
         const paidAmount =
           input.paymentType === "CASH"
-            ? totalAmount
-            : Number(Math.min(input.paidAmount || 0, totalAmount).toFixed(2));
+            ? netAmount
+            : Number(Math.min(input.paidAmount || 0, netAmount).toFixed(2));
         const dueAmount = Number(
-          Math.max(0, totalAmount - paidAmount).toFixed(2),
+          Math.max(0, netAmount - paidAmount).toFixed(2),
         );
 
         // If credit purchase and due > 0, update supplier currentDue
@@ -228,6 +233,8 @@ export class PurchasesService {
             supplierName: resolvedSupplierName || null,
             paymentType: input.paymentType,
             totalAmount,
+            discount,
+            netAmount,
             paidAmount,
             dueAmount,
             note: input.note || null,

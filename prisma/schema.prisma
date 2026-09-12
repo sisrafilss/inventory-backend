@@ -213,6 +213,8 @@ model Purchase {
   supplierName  String?
   paymentType   String    @default("CASH") // CASH, SUPPLIER (Credit)
   totalAmount   Decimal   @default(0.00) @db.Decimal(12, 2)
+  discount      Decimal   @default(0.00) @db.Decimal(12, 2)
+  netAmount     Decimal   @default(0.00) @db.Decimal(12, 2)
   paidAmount    Decimal   @default(0.00) @db.Decimal(12, 2)
   dueAmount     Decimal   @default(0.00) @db.Decimal(12, 2)
   note          String?
