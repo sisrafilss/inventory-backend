@@ -18,6 +18,8 @@ export interface CreatePurchaseInput {
   invoiceNumber?: string;
   supplierId?: string | null;
   supplierName?: string;
+  supplierPhone?: string | null;
+  supplierAddress?: string | null;
   paymentType: "CASH" | "SUPPLIER";
   paidAmount?: number;
   discount?: number;
@@ -43,9 +45,9 @@ export class PurchasesService {
     if (actor?.role === Role.MANAGER) {
       if (!actor.warehouseId) {
         throw new AppError(
-          "No warehouse assigned to your manager account. Please contact an administrator.",
+          "Manager is not assigned to any warehouse.",
           403,
-          "NO_ASSIGNED_WAREHOUSE",
+          "NO_WAREHOUSE_ASSIGNED",
         );
       }
       input.warehouseId = actor.warehouseId;
@@ -64,10 +66,9 @@ export class PurchasesService {
       );
     }
 
-    const invoiceNumber =
-      input.invoiceNumber && input.invoiceNumber.trim()
-        ? input.invoiceNumber.trim()
-        : this.generateInvoiceNumber();
+    const invoiceNumber = input.invoiceNumber?.trim()
+      ? input.invoiceNumber.trim()
+      : this.generateInvoiceNumber();
 
     const existingPurchase = await prisma.purchase.findUnique({
       where: { invoiceNumber },
@@ -108,7 +109,44 @@ export class PurchasesService {
               "SUPPLIER_NOT_FOUND",
             );
           }
-          resolvedSupplierName = supplier.name;
+
+          const updateData: {
+            name?: string;
+            phone?: string | null;
+            address?: string | null;
+          } = {};
+
+          if (
+            input.supplierName &&
+            input.supplierName !== supplier.name &&
+            input.supplierName.toLowerCase() !== "cash party"
+          ) {
+            updateData.name = input.supplierName;
+          }
+          if (
+            input.supplierPhone !== undefined &&
+            input.supplierPhone !== null &&
+            input.supplierPhone !== supplier.phone
+          ) {
+            updateData.phone = input.supplierPhone || null;
+          }
+          if (
+            input.supplierAddress !== undefined &&
+            input.supplierAddress !== null &&
+            input.supplierAddress !== supplier.address
+          ) {
+            updateData.address = input.supplierAddress || null;
+          }
+
+          if (Object.keys(updateData).length > 0) {
+            const updatedSupplier = await tx.supplier.update({
+              where: { id: supplier.id },
+              data: updateData,
+            });
+            resolvedSupplierName = updatedSupplier.name;
+          } else {
+            resolvedSupplierName = input.supplierName || supplier.name;
+          }
         } else if (input.paymentType === "SUPPLIER") {
           throw new AppError(
             "A supplier must be selected for credit purchases.",
