@@ -383,7 +383,11 @@ export class SalesService {
             referenceNumber,
             createdById,
             customerId: data.customerId || null,
-            warehouseId: data.warehouseId || null,
+            warehouseId:
+              data.warehouseId ||
+              data.items?.find((i) => i.warehouseId)?.warehouseId ||
+              defaultWarehouse?.id ||
+              null,
             paymentType,
             status: SaleStatus.COMPLETED,
             totalAmount,
