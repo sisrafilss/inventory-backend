@@ -146,13 +146,45 @@ export class SalesService {
       if (!customer) {
         throw new AppError("Customer not found.", 404, "CUSTOMER_NOT_FOUND");
       }
-      if (!customerName) customerName = customer.name;
-      if (!customerPhone) customerPhone = customer.phone;
-      if (customerAddress && !customer.address) {
-        await prisma.customer.update({
+
+      const updateData: {
+        name?: string;
+        phone?: string | null;
+        address?: string | null;
+      } = {};
+
+      if (
+        customerName &&
+        customerName !== customer.name &&
+        customerName.toLowerCase() !== "cash party"
+      ) {
+        updateData.name = customerName;
+      }
+      if (
+        customerPhone !== undefined &&
+        customerPhone !== null &&
+        customerPhone !== customer.phone
+      ) {
+        updateData.phone = customerPhone || null;
+      }
+      if (
+        customerAddress !== undefined &&
+        customerAddress !== null &&
+        customerAddress !== customer.address
+      ) {
+        updateData.address = customerAddress || null;
+      }
+
+      if (Object.keys(updateData).length > 0) {
+        const updatedCustomer = await prisma.customer.update({
           where: { id: customer.id },
-          data: { address: customerAddress },
+          data: updateData,
         });
+        customerName = updatedCustomer.name;
+        customerPhone = updatedCustomer.phone;
+      } else {
+        if (!customerName) customerName = customer.name;
+        if (!customerPhone) customerPhone = customer.phone;
       }
     } else if (customerName && customerName.toLowerCase() !== "cash party") {
       // Find existing customer by phone or name
