@@ -543,6 +543,11 @@ export class ReportsService {
               include: {
                 company: { select: { id: true, name: true } },
                 category: { select: { id: true, name: true } },
+                warehouseStocks: {
+                  include: {
+                    warehouse: { select: { id: true, name: true } },
+                  },
+                },
               },
             },
           },
@@ -559,28 +564,105 @@ export class ReportsService {
         );
       }
 
+      const totalQuantity = filteredStocks.reduce(
+        (acc, s) => acc + Number(s.quantity),
+        0,
+      );
+      const totalCostValue = filteredStocks.reduce(
+        (acc, s) => acc + Number(s.quantity) * Number(s.product.costPrice || 0),
+        0,
+      );
+      const totalRetailValue = filteredStocks.reduce(
+        (acc, s) => acc + Number(s.quantity) * Number(s.product.sellingPrice || 0),
+        0,
+      );
+      const potentialMargin = totalRetailValue - totalCostValue;
+
+      let inStockCount = 0;
+      let lowStockCount = 0;
+      let outOfStockCount = 0;
+
+      const items = filteredStocks.map((s) => {
+        const qty = Number(s.quantity);
+        const cost = Number(s.product.costPrice || 0);
+        const selling = Number(s.product.sellingPrice || 0);
+        const reorder = Number(s.product.reorderLevel || 0);
+
+        let stockStatus = "IN_STOCK";
+        if (qty <= 0) {
+          stockStatus = "OUT_OF_STOCK";
+          outOfStockCount++;
+        } else if (qty <= reorder) {
+          stockStatus = "LOW_STOCK";
+          lowStockCount++;
+        } else {
+          inStockCount++;
+        }
+
+        const costVal = qty * cost;
+        const retailVal = qty * selling;
+
+        return {
+          id: s.id,
+          productId: s.productId,
+          productName: s.product.name,
+          sku: s.product.sku,
+          barcode: s.product.barcode,
+          unit: s.product.unit,
+          packSize: Number(s.product.packSize) || 1,
+          companyId: s.product.companyId,
+          company: s.product.company?.name || "N/A",
+          categoryId: s.product.categoryId,
+          category: s.product.category?.name || "N/A",
+          quantity: qty,
+          reorderLevel: reorder,
+          dpRate: Number(s.product.dpRate || 0),
+          commissionPercent: Number(s.product.commissionPercent || 0),
+          costPrice: cost,
+          sellingPrice: selling,
+          totalCostValue: costVal,
+          totalRetailValue: retailVal,
+          stockStatus,
+          isActive: s.product.isActive,
+          description: s.product.description,
+          product: {
+            ...s.product,
+            quantity: Number(s.product.quantity),
+            costPrice: cost,
+            sellingPrice: selling,
+            reorderLevel: reorder,
+            packSize: Number(s.product.packSize) || 1,
+            dpRate: Number(s.product.dpRate || 0),
+            commissionPercent: Number(s.product.commissionPercent || 0),
+            warehouseStocks: s.product.warehouseStocks.map((ws) => ({
+              id: ws.id,
+              warehouseId: ws.warehouseId,
+              quantity: Number(ws.quantity),
+              warehouse: ws.warehouse,
+            })),
+          },
+        };
+      });
+
       return {
         warehouseId: wh.id,
         warehouseName: wh.name,
         location: wh.address,
         address: wh.address,
         isDefault: wh.isDefault,
-        totalItemsTracked: filteredStocks.length,
-        totalQuantity: filteredStocks.reduce(
-          (acc, s) => acc + Number(s.quantity),
-          0,
-        ),
-        stocks: filteredStocks.map((s) => ({
-          id: s.id,
-          productId: s.productId,
-          productName: s.product.name,
-          sku: s.product.sku,
-          unit: s.product.unit,
-          company: s.product.company?.name || "N/A",
-          category: s.product.category?.name || "N/A",
-          quantity: Number(s.quantity),
-          sellingPrice: Number(s.product.sellingPrice),
-        })),
+        totalItemsTracked: items.length,
+        inStockItems: inStockCount,
+        lowStockItems: lowStockCount,
+        outOfStockItems: outOfStockCount,
+        totalQuantity,
+        totalCostValue,
+        totalRetailValue,
+        potentialMargin,
+        marginPercent:
+          totalRetailValue > 0
+            ? ((potentialMargin / totalRetailValue) * 100).toFixed(1)
+            : "0.0",
+        stocks: items,
       };
     });
 
