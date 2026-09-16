@@ -573,7 +573,8 @@ export class ReportsService {
         0,
       );
       const totalRetailValue = filteredStocks.reduce(
-        (acc, s) => acc + Number(s.quantity) * Number(s.product.sellingPrice || 0),
+        (acc, s) =>
+          acc + Number(s.quantity) * Number(s.product.sellingPrice || 0),
         0,
       );
       const potentialMargin = totalRetailValue - totalCostValue;
@@ -1514,7 +1515,13 @@ export class ReportsService {
 
     const categoryMap = new Map<
       string,
-      { categoryName: string; revenue: number; cost: number; profit: number; itemsSold: number }
+      {
+        categoryName: string;
+        revenue: number;
+        cost: number;
+        profit: number;
+        itemsSold: number;
+      }
     >();
 
     const productMap = new Map<
@@ -1645,9 +1652,7 @@ export class ReportsService {
         cost: Number(d.cost.toFixed(2)),
         profit: Number(d.profit.toFixed(2)),
         marginPercent:
-          d.revenue > 0
-            ? Number(((d.profit / d.revenue) * 100).toFixed(1))
-            : 0,
+          d.revenue > 0 ? Number(((d.profit / d.revenue) * 100).toFixed(1)) : 0,
         salesCount: d.salesCount,
       }))
       .sort((a, b) => a.date.localeCompare(b.date));
@@ -1660,9 +1665,7 @@ export class ReportsService {
         cost: Number(c.cost.toFixed(2)),
         profit: Number(c.profit.toFixed(2)),
         marginPercent:
-          c.revenue > 0
-            ? Number(((c.profit / c.revenue) * 100).toFixed(1))
-            : 0,
+          c.revenue > 0 ? Number(((c.profit / c.revenue) * 100).toFixed(1)) : 0,
       }))
       .sort((a, b) => b.profit - a.profit);
 
@@ -1674,9 +1677,7 @@ export class ReportsService {
         cost: Number(p.cost.toFixed(2)),
         profit: Number(p.profit.toFixed(2)),
         marginPercent:
-          p.revenue > 0
-            ? Number(((p.profit / p.revenue) * 100).toFixed(1))
-            : 0,
+          p.revenue > 0 ? Number(((p.profit / p.revenue) * 100).toFixed(1)) : 0,
       }))
       .sort((a, b) => b.profit - a.profit)
       .slice(0, 10);
@@ -1704,14 +1705,30 @@ export class ReportsService {
   // Month-over-Month (MoM) Comparison Report
   static async getMoMComparison() {
     const now = new Date();
-    
+
     // Current Month Range
     const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    const currentMonthEnd = new Date(
+      now.getFullYear(),
+      now.getMonth() + 1,
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
 
     // Previous Month Range
     const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+    const prevMonthEnd = new Date(
+      now.getFullYear(),
+      now.getMonth(),
+      0,
+      23,
+      59,
+      59,
+      999,
+    );
 
     const [currentSales, prevSales] = await Promise.all([
       prisma.sale.findMany({
@@ -1756,7 +1773,8 @@ export class ReportsService {
       }
 
       const profit = revenue - cost;
-      const marginPercent = revenue > 0 ? Number(((profit / revenue) * 100).toFixed(1)) : 0;
+      const marginPercent =
+        revenue > 0 ? Number(((profit / revenue) * 100).toFixed(1)) : 0;
 
       return {
         salesCount: salesList.length,
@@ -1778,15 +1796,34 @@ export class ReportsService {
     };
 
     const growth = {
-      revenueGrowth: calculateGrowth(currentMonth.revenue, previousMonth.revenue),
+      revenueGrowth: calculateGrowth(
+        currentMonth.revenue,
+        previousMonth.revenue,
+      ),
       profitGrowth: calculateGrowth(currentMonth.profit, previousMonth.profit),
-      salesCountGrowth: calculateGrowth(currentMonth.salesCount, previousMonth.salesCount),
-      unitsSoldGrowth: calculateGrowth(currentMonth.unitsSold, previousMonth.unitsSold),
+      salesCountGrowth: calculateGrowth(
+        currentMonth.salesCount,
+        previousMonth.salesCount,
+      ),
+      unitsSoldGrowth: calculateGrowth(
+        currentMonth.unitsSold,
+        previousMonth.unitsSold,
+      ),
     };
 
     const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
+      "January",
+      "February",
+      "March",
+      "April",
+      "May",
+      "June",
+      "July",
+      "August",
+      "September",
+      "October",
+      "November",
+      "December",
     ];
 
     return {
@@ -1835,23 +1872,27 @@ export class ReportsService {
 
     const items = products.map((p) => {
       const sales = salesMap.get(p.id) || { qty: 0, revenue: 0 };
-      let categoryType: 'FAST_MOVING' | 'MODERATE' | 'SLOW_MOVING' | 'DEAD_STOCK' = 'DEAD_STOCK';
+      let categoryType:
+        | "FAST_MOVING"
+        | "MODERATE"
+        | "SLOW_MOVING"
+        | "DEAD_STOCK" = "DEAD_STOCK";
 
       if (sales.qty >= 40) {
-        categoryType = 'FAST_MOVING';
+        categoryType = "FAST_MOVING";
       } else if (sales.qty >= 10) {
-        categoryType = 'MODERATE';
+        categoryType = "MODERATE";
       } else if (sales.qty > 0) {
-        categoryType = 'SLOW_MOVING';
+        categoryType = "SLOW_MOVING";
       }
 
       return {
         id: p.id,
         name: p.name,
         sku: p.sku,
-        barcode: p.barcode || '—',
-        category: p.category?.name || 'Uncategorized',
-        company: p.company?.name || '—',
+        barcode: p.barcode || "—",
+        category: p.category?.name || "Uncategorized",
+        company: p.company?.name || "—",
         currentStock: p.quantity,
         unit: p.unit,
         sellingPrice: Number(p.sellingPrice),
@@ -1867,10 +1908,16 @@ export class ReportsService {
     return {
       summary: {
         totalProducts: items.length,
-        fastMovingCount: items.filter((i) => i.velocityCategory === 'FAST_MOVING').length,
-        moderateCount: items.filter((i) => i.velocityCategory === 'MODERATE').length,
-        slowMovingCount: items.filter((i) => i.velocityCategory === 'SLOW_MOVING').length,
-        deadStockCount: items.filter((i) => i.velocityCategory === 'DEAD_STOCK').length,
+        fastMovingCount: items.filter(
+          (i) => i.velocityCategory === "FAST_MOVING",
+        ).length,
+        moderateCount: items.filter((i) => i.velocityCategory === "MODERATE")
+          .length,
+        slowMovingCount: items.filter(
+          (i) => i.velocityCategory === "SLOW_MOVING",
+        ).length,
+        deadStockCount: items.filter((i) => i.velocityCategory === "DEAD_STOCK")
+          .length,
       },
       items,
     };
@@ -1887,7 +1934,7 @@ export class ReportsService {
     });
 
     if (!customer) {
-      throw new Error('Customer not found');
+      throw new Error("Customer not found");
     }
 
     const whereDate: any = {};
@@ -1903,23 +1950,29 @@ export class ReportsService {
         where: {
           customerId: query.customerId,
           status: SaleStatus.COMPLETED,
-          ...(Object.keys(whereDate).length > 0 ? { createdAt: whereDate } : {}),
+          ...(Object.keys(whereDate).length > 0
+            ? { createdAt: whereDate }
+            : {}),
         },
-        orderBy: { createdAt: 'asc' },
+        orderBy: { createdAt: "asc" },
       }),
       prisma.partyPayment.findMany({
         where: {
           customerId: query.customerId,
-          ...(Object.keys(whereDate).length > 0 ? { createdAt: whereDate } : {}),
+          ...(Object.keys(whereDate).length > 0
+            ? { createdAt: whereDate }
+            : {}),
         },
-        orderBy: { createdAt: 'asc' },
+        orderBy: { createdAt: "asc" },
       }),
       prisma.salesReturn.findMany({
         where: {
           customerId: query.customerId,
-          ...(Object.keys(whereDate).length > 0 ? { createdAt: whereDate } : {}),
+          ...(Object.keys(whereDate).length > 0
+            ? { createdAt: whereDate }
+            : {}),
         },
-        orderBy: { createdAt: 'asc' },
+        orderBy: { createdAt: "asc" },
       }),
     ]);
 
@@ -1928,9 +1981,9 @@ export class ReportsService {
     for (const sale of sales) {
       transactions.push({
         id: sale.id,
-        date: sale.createdAt.toISOString().split('T')[0],
+        date: sale.createdAt.toISOString().split("T")[0],
         rawDate: sale.createdAt,
-        type: 'SALE',
+        type: "SALE",
         reference: sale.referenceNumber,
         description: `Sale Invoice #${sale.referenceNumber} (${sale.paymentType})`,
         debit: Number(sale.netAmount), // Increases customer due
@@ -1941,11 +1994,11 @@ export class ReportsService {
     for (const p of payments) {
       transactions.push({
         id: p.id,
-        date: p.createdAt.toISOString().split('T')[0],
+        date: p.createdAt.toISOString().split("T")[0],
         rawDate: p.createdAt,
-        type: 'PAYMENT',
+        type: "PAYMENT",
         reference: p.receiptNumber || p.id.slice(-6),
-        description: `Payment Received (${p.paymentMethod || 'CASH'}) - ${p.referenceNote || 'Collection'}`,
+        description: `Payment Received (${p.paymentMethod || "CASH"}) - ${p.referenceNote || "Collection"}`,
         debit: 0,
         credit: Number(p.amount), // Reduces customer due
       });
@@ -1954,9 +2007,9 @@ export class ReportsService {
     for (const ret of returns) {
       transactions.push({
         id: ret.id,
-        date: ret.createdAt.toISOString().split('T')[0],
+        date: ret.createdAt.toISOString().split("T")[0],
         rawDate: ret.createdAt,
-        type: 'RETURN',
+        type: "RETURN",
         reference: ret.returnNumber,
         description: `Sales Return #${ret.returnNumber} (${ret.refundType})`,
         debit: 0,
@@ -1985,8 +2038,8 @@ export class ReportsService {
         currentDue: Number(customer.currentDue),
         openingBalance: Number(customer.openingDue || 0),
       },
-      startDate: query.startDate || 'Beginning',
-      endDate: query.endDate || 'Present',
+      startDate: query.startDate || "Beginning",
+      endDate: query.endDate || "Present",
       ledgerEntries,
       finalBalance: Number(runningBalance.toFixed(2)),
     };
@@ -2014,24 +2067,29 @@ export class ReportsService {
     const sales = await prisma.sale.findMany({
       where,
       include: {
-        createdBy: { select: { id: true, name: true, email: true, role: true } },
+        createdBy: {
+          select: { id: true, name: true, email: true, role: true },
+        },
       },
     });
 
-    const userMap = new Map<string, {
-      userId: string;
-      userName: string;
-      userRole: string;
-      salesCount: number;
-      totalRevenue: number;
-      totalCollected: number;
-      totalDue: number;
-    }>();
+    const userMap = new Map<
+      string,
+      {
+        userId: string;
+        userName: string;
+        userRole: string;
+        salesCount: number;
+        totalRevenue: number;
+        totalCollected: number;
+        totalDue: number;
+      }
+    >();
 
     for (const s of sales) {
-      const uId = s.createdById || 'SYSTEM';
-      const uName = s.createdBy?.name || 'System / Cashier';
-      const uRole = s.createdBy?.role || 'STAFF';
+      const uId = s.createdById || "SYSTEM";
+      const uName = s.createdBy?.name || "System / Cashier";
+      const uRole = s.createdBy?.role || "STAFF";
 
       const existing = userMap.get(uId) || {
         userId: uId,
@@ -2056,7 +2114,10 @@ export class ReportsService {
       totalRevenue: Number(u.totalRevenue.toFixed(2)),
       totalCollected: Number(u.totalCollected.toFixed(2)),
       totalDue: Number(u.totalDue.toFixed(2)),
-      avgOrderValue: u.salesCount > 0 ? Number((u.totalRevenue / u.salesCount).toFixed(2)) : 0,
+      avgOrderValue:
+        u.salesCount > 0
+          ? Number((u.totalRevenue / u.salesCount).toFixed(2))
+          : 0,
     }));
 
     users.sort((a, b) => b.totalRevenue - a.totalRevenue);
@@ -2077,43 +2138,51 @@ export class ReportsService {
         company: { select: { name: true } },
         category: { select: { name: true } },
       },
-      orderBy: { quantity: 'asc' },
+      orderBy: { quantity: "asc" },
     });
 
     const lowStockItems = products
       .filter((p) => Number(p.quantity) <= Number(p.reorderLevel))
       .map((p) => {
-        const requiredQty = Math.max(1, Number(p.reorderLevel) * 2 - Number(p.quantity));
+        const requiredQty = Math.max(
+          1,
+          Number(p.reorderLevel) * 2 - Number(p.quantity),
+        );
         const totalEstimatedCost = requiredQty * Number(p.costPrice || 0);
 
         return {
           id: p.id,
           sku: p.sku,
-          barcode: p.barcode || '—',
+          barcode: p.barcode || "—",
           name: p.name,
-          company: p.company?.name || '—',
-          category: p.category?.name || 'Uncategorized',
+          company: p.company?.name || "—",
+          category: p.category?.name || "Uncategorized",
           unit: p.unit,
           currentStock: Number(p.quantity),
           reorderLevel: Number(p.reorderLevel),
           suggestedReorderQty: requiredQty,
           costPrice: Number(p.costPrice || 0),
           totalEstimatedCost: Number(totalEstimatedCost.toFixed(2)),
-          urgency: Number(p.quantity) <= 0 ? 'CRITICAL' : 'WARNING',
+          urgency: Number(p.quantity) <= 0 ? "CRITICAL" : "WARNING",
         };
       });
 
     const totalEstimatedCapitalNeeded = lowStockItems.reduce(
       (acc, i) => acc + i.totalEstimatedCost,
-      0
+      0,
     );
 
     return {
       summary: {
         totalAlerts: lowStockItems.length,
-        outOfStockCount: lowStockItems.filter((i) => Number(i.currentStock) <= 0).length,
-        lowStockCount: lowStockItems.filter((i) => Number(i.currentStock) > 0).length,
-        totalEstimatedCapitalNeeded: Number(totalEstimatedCapitalNeeded.toFixed(2)),
+        outOfStockCount: lowStockItems.filter(
+          (i) => Number(i.currentStock) <= 0,
+        ).length,
+        lowStockCount: lowStockItems.filter((i) => Number(i.currentStock) > 0)
+          .length,
+        totalEstimatedCapitalNeeded: Number(
+          totalEstimatedCapitalNeeded.toFixed(2),
+        ),
       },
       items: lowStockItems,
     };
@@ -2127,7 +2196,7 @@ export class ReportsService {
         category: { select: { name: true } },
         company: { select: { name: true } },
         saleItems: {
-          orderBy: { sale: { createdAt: 'desc' } },
+          orderBy: { sale: { createdAt: "desc" } },
           take: 1,
           select: { sale: { select: { createdAt: true } } },
         },
@@ -2139,17 +2208,22 @@ export class ReportsService {
     const items = products.map((p) => {
       const lastSaleDate = p.saleItems[0]?.sale?.createdAt || p.createdAt;
       const ageDays = Math.floor(
-        (now.getTime() - new Date(lastSaleDate).getTime()) / (1000 * 60 * 60 * 24)
+        (now.getTime() - new Date(lastSaleDate).getTime()) /
+          (1000 * 60 * 60 * 24),
       );
 
-      let ageBracket: '0-30 Days' | '31-60 Days' | '61-90 Days' | '90+ Days (Dead Stock)' = '0-30 Days';
+      let ageBracket:
+        | "0-30 Days"
+        | "31-60 Days"
+        | "61-90 Days"
+        | "90+ Days (Dead Stock)" = "0-30 Days";
 
       if (ageDays > 90) {
-        ageBracket = '90+ Days (Dead Stock)';
+        ageBracket = "90+ Days (Dead Stock)";
       } else if (ageDays > 60) {
-        ageBracket = '61-90 Days';
+        ageBracket = "61-90 Days";
       } else if (ageDays > 30) {
-        ageBracket = '31-60 Days';
+        ageBracket = "31-60 Days";
       }
 
       const totalValuation = Number(p.quantity) * Number(p.costPrice || 0);
@@ -2157,15 +2231,15 @@ export class ReportsService {
       return {
         id: p.id,
         sku: p.sku,
-        barcode: p.barcode || '—',
+        barcode: p.barcode || "—",
         name: p.name,
-        company: p.company?.name || '—',
-        category: p.category?.name || 'Uncategorized',
+        company: p.company?.name || "—",
+        category: p.category?.name || "Uncategorized",
         unit: p.unit,
         currentStock: Number(p.quantity),
         costPrice: Number(p.costPrice || 0),
         totalValuation: Number(totalValuation.toFixed(2)),
-        lastSaleDate: new Date(lastSaleDate).toISOString().split('T')[0],
+        lastSaleDate: new Date(lastSaleDate).toISOString().split("T")[0],
         ageDays,
         ageBracket,
       };
@@ -2174,12 +2248,14 @@ export class ReportsService {
     items.sort((a, b) => b.ageDays - a.ageDays);
 
     const summary = {
-      bracket0_30: items.filter((i) => i.ageBracket === '0-30 Days').length,
-      bracket31_60: items.filter((i) => i.ageBracket === '31-60 Days').length,
-      bracket61_90: items.filter((i) => i.ageBracket === '61-90 Days').length,
-      bracket90Plus: items.filter((i) => i.ageBracket === '90+ Days (Dead Stock)').length,
+      bracket0_30: items.filter((i) => i.ageBracket === "0-30 Days").length,
+      bracket31_60: items.filter((i) => i.ageBracket === "31-60 Days").length,
+      bracket61_90: items.filter((i) => i.ageBracket === "61-90 Days").length,
+      bracket90Plus: items.filter(
+        (i) => i.ageBracket === "90+ Days (Dead Stock)",
+      ).length,
       deadStockTiedCapital: items
-        .filter((i) => i.ageBracket === '90+ Days (Dead Stock)')
+        .filter((i) => i.ageBracket === "90+ Days (Dead Stock)")
         .reduce((acc, i) => acc + i.totalValuation, 0),
     };
 
