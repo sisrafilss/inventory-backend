@@ -18,6 +18,7 @@ router.get("/daily-sales", ReportsController.getDailySalesStatement);
 router.get("/daily-purchases", ReportsController.getDailyPurchases);
 router.get("/daily-costs", ReportsController.getDailyCosts);
 router.get("/daily-purchase-sales", ReportsController.getDailyPurchaseOrSales);
+router.get("/bi-analytics", ReportsController.getBIAnalytics);
 
 // Commercial Profit & Executive Reports strictly for Super Admin and Admin
 router.get(

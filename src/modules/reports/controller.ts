@@ -243,4 +243,22 @@ export class ReportsController {
       next(error);
     }
   }
+
+  static async getBIAnalytics(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
+    try {
+      const report = await ReportsService.getBIAnalytics({
+        startDate: req.query.startDate as string,
+        endDate: req.query.endDate as string,
+        warehouseId: req.query.warehouseId as string,
+        categoryId: req.query.categoryId as string,
+      });
+      return sendSuccess(res, report);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

@@ -1363,4 +1363,258 @@ export class ReportsService {
       })),
     };
   }
+
+  static async getBIAnalytics(query: {
+    startDate?: string;
+    endDate?: string;
+    warehouseId?: string;
+    categoryId?: string;
+  }) {
+    const whereSale: Prisma.SaleWhereInput = {
+      status: SaleStatus.COMPLETED,
+    };
+
+    if (query.warehouseId) {
+      whereSale.warehouseId = query.warehouseId;
+    }
+
+    if (query.startDate || query.endDate) {
+      whereSale.createdAt = {};
+      if (query.startDate) {
+        whereSale.createdAt.gte = new Date(query.startDate);
+      }
+      if (query.endDate) {
+        const end = new Date(query.endDate);
+        end.setHours(23, 59, 59, 999);
+        whereSale.createdAt.lte = end;
+      }
+    }
+
+    const itemWhere: Prisma.SaleItemWhereInput = {};
+    if (query.categoryId) {
+      itemWhere.product = {
+        categoryId: query.categoryId,
+      };
+    }
+
+    const sales = await prisma.sale.findMany({
+      where: whereSale,
+      orderBy: { createdAt: "desc" },
+      include: {
+        warehouse: { select: { name: true } },
+        items: {
+          where: itemWhere,
+          include: {
+            product: {
+              select: {
+                id: true,
+                name: true,
+                sku: true,
+                barcode: true,
+                company: { select: { name: true } },
+                category: { select: { name: true } },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    let totalRevenue = 0;
+    let totalCost = 0;
+    let totalUnitsSold = 0;
+    let totalDiscount = 0;
+
+    const dailyTrendMap = new Map<
+      string,
+      { revenue: number; cost: number; profit: number; salesCount: number }
+    >();
+
+    const categoryMap = new Map<
+      string,
+      { categoryName: string; revenue: number; cost: number; profit: number; itemsSold: number }
+    >();
+
+    const productMap = new Map<
+      string,
+      {
+        id: string;
+        name: string;
+        sku: string;
+        barcode: string | null;
+        categoryName: string;
+        unitsSold: number;
+        revenue: number;
+        cost: number;
+        profit: number;
+      }
+    >();
+
+    const lineItems: any[] = [];
+
+    for (const sale of sales) {
+      const dateStr = sale.createdAt.toISOString().split("T")[0];
+      const discountRatio =
+        sale.totalAmount > 0 ? (sale.discount || 0) / sale.totalAmount : 0;
+      totalDiscount += sale.discount || 0;
+
+      for (const item of sale.items) {
+        const qty = Number(item.quantity);
+        const unitPrice = Number(item.unitPrice);
+        const grossLineTotal = Number(item.lineTotal || qty * unitPrice);
+        const lineDiscount = grossLineTotal * discountRatio;
+        const netLineTotal = grossLineTotal - lineDiscount;
+
+        const purchaseCostUnit = Number(item.purchaseCost || 0);
+        const totalLineCost = qty * purchaseCostUnit;
+        const lineProfit = netLineTotal - totalLineCost;
+
+        totalRevenue += netLineTotal;
+        totalCost += totalLineCost;
+        totalUnitsSold += qty;
+
+        // Daily trend aggregation
+        const existingDaily = dailyTrendMap.get(dateStr) || {
+          revenue: 0,
+          cost: 0,
+          profit: 0,
+          salesCount: 0,
+        };
+        existingDaily.revenue += netLineTotal;
+        existingDaily.cost += totalLineCost;
+        existingDaily.profit += lineProfit;
+        existingDaily.salesCount += 1;
+        dailyTrendMap.set(dateStr, existingDaily);
+
+        // Category breakdown aggregation
+        const catName = item.product.category?.name || "Uncategorized";
+        const existingCat = categoryMap.get(catName) || {
+          categoryName: catName,
+          revenue: 0,
+          cost: 0,
+          profit: 0,
+          itemsSold: 0,
+        };
+        existingCat.revenue += netLineTotal;
+        existingCat.cost += totalLineCost;
+        existingCat.profit += lineProfit;
+        existingCat.itemsSold += qty;
+        categoryMap.set(catName, existingCat);
+
+        // Product performance aggregation
+        const prodId = item.product.id;
+        const existingProd = productMap.get(prodId) || {
+          id: prodId,
+          name: item.product.name,
+          sku: item.product.sku,
+          barcode: item.product.barcode || null,
+          categoryName: catName,
+          unitsSold: 0,
+          revenue: 0,
+          cost: 0,
+          profit: 0,
+        };
+        existingProd.unitsSold += qty;
+        existingProd.revenue += netLineTotal;
+        existingProd.cost += totalLineCost;
+        existingProd.profit += lineProfit;
+        productMap.set(prodId, existingProd);
+
+        // Flat Line item for custom report builder grid
+        lineItems.push({
+          id: item.id,
+          saleId: sale.id,
+          date: sale.createdAt.toISOString().split("T")[0],
+          rawDate: sale.createdAt,
+          invoiceNumber: sale.referenceNumber,
+          customerName: sale.customerName || "Cash Retail Customer",
+          warehouseName: sale.warehouse?.name || "Main Warehouse",
+          productName: item.product.name,
+          sku: item.product.sku,
+          barcode: item.product.barcode || "—",
+          companyName: item.product.company?.name || "—",
+          categoryName: catName,
+          quantity: qty,
+          unitPrice,
+          lineTotal: Number(netLineTotal.toFixed(2)),
+          purchaseCost: purchaseCostUnit,
+          totalCost: Number(totalLineCost.toFixed(2)),
+          profit: Number(lineProfit.toFixed(2)),
+          marginPercent:
+            netLineTotal > 0
+              ? Number(((lineProfit / netLineTotal) * 100).toFixed(1))
+              : 0,
+        });
+      }
+    }
+
+    const netProfit = totalRevenue - totalCost;
+    const overallMarginPercent =
+      totalRevenue > 0
+        ? Number(((netProfit / totalRevenue) * 100).toFixed(2))
+        : 0;
+
+    // Format daily trend sorted chronologically
+    const dailyTrends = Array.from(dailyTrendMap.entries())
+      .map(([date, d]) => ({
+        date,
+        revenue: Number(d.revenue.toFixed(2)),
+        cost: Number(d.cost.toFixed(2)),
+        profit: Number(d.profit.toFixed(2)),
+        marginPercent:
+          d.revenue > 0
+            ? Number(((d.profit / d.revenue) * 100).toFixed(1))
+            : 0,
+        salesCount: d.salesCount,
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    // Format category profitability
+    const categoryBreakdown = Array.from(categoryMap.values())
+      .map((c) => ({
+        ...c,
+        revenue: Number(c.revenue.toFixed(2)),
+        cost: Number(c.cost.toFixed(2)),
+        profit: Number(c.profit.toFixed(2)),
+        marginPercent:
+          c.revenue > 0
+            ? Number(((c.profit / c.revenue) * 100).toFixed(1))
+            : 0,
+      }))
+      .sort((a, b) => b.profit - a.profit);
+
+    // Format top profit products (Top 10)
+    const topProfitProducts = Array.from(productMap.values())
+      .map((p) => ({
+        ...p,
+        revenue: Number(p.revenue.toFixed(2)),
+        cost: Number(p.cost.toFixed(2)),
+        profit: Number(p.profit.toFixed(2)),
+        marginPercent:
+          p.revenue > 0
+            ? Number(((p.profit / p.revenue) * 100).toFixed(1))
+            : 0,
+      }))
+      .sort((a, b) => b.profit - a.profit)
+      .slice(0, 10);
+
+    return {
+      summary: {
+        totalSalesCount: sales.length,
+        totalUnitsSold,
+        totalRevenue: Number(totalRevenue.toFixed(2)),
+        totalCost: Number(totalCost.toFixed(2)),
+        netProfit: Number(netProfit.toFixed(2)),
+        overallMarginPercent,
+        totalDiscount: Number(totalDiscount.toFixed(2)),
+      },
+      dailyTrends,
+      categoryBreakdown,
+      topProfitProducts,
+      lineItems: lineItems.map((item, idx) => ({
+        sn: idx + 1,
+        ...item,
+      })),
+    };
+  }
 }
