@@ -261,4 +261,65 @@ export class ReportsController {
       next(error);
     }
   }
+
+  static async getMoMComparison(req: Request, res: Response, next: NextFunction) {
+    try {
+      const report = await ReportsService.getMoMComparison();
+      return sendSuccess(res, report);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getProductVelocity(req: Request, res: Response, next: NextFunction) {
+    try {
+      const report = await ReportsService.getProductVelocity();
+      return sendSuccess(res, report);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getCustomerLedger(req: Request, res: Response, next: NextFunction) {
+    try {
+      const report = await ReportsService.getCustomerLedger({
+        customerId: req.params.customerId || (req.query.customerId as string),
+        startDate: req.query.startDate as string,
+        endDate: req.query.endDate as string,
+      });
+      return sendSuccess(res, report);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getUserPerformance(req: Request, res: Response, next: NextFunction) {
+    try {
+      const report = await ReportsService.getUserPerformance({
+        startDate: req.query.startDate as string,
+        endDate: req.query.endDate as string,
+      });
+      return sendSuccess(res, report);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getReorderAlerts(req: Request, res: Response, next: NextFunction) {
+    try {
+      const report = await ReportsService.getReorderAlerts();
+      return sendSuccess(res, report);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getStockAging(req: Request, res: Response, next: NextFunction) {
+    try {
+      const report = await ReportsService.getStockAging();
+      return sendSuccess(res, report);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

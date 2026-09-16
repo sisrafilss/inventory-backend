@@ -19,6 +19,12 @@ router.get("/daily-purchases", ReportsController.getDailyPurchases);
 router.get("/daily-costs", ReportsController.getDailyCosts);
 router.get("/daily-purchase-sales", ReportsController.getDailyPurchaseOrSales);
 router.get("/bi-analytics", ReportsController.getBIAnalytics);
+router.get("/mom-comparison", ReportsController.getMoMComparison);
+router.get("/product-velocity", ReportsController.getProductVelocity);
+router.get("/customer-ledger/:customerId?", ReportsController.getCustomerLedger);
+router.get("/user-performance", ReportsController.getUserPerformance);
+router.get("/reorder-alerts", ReportsController.getReorderAlerts);
+router.get("/stock-aging", ReportsController.getStockAging);
 
 // Commercial Profit & Executive Reports strictly for Super Admin and Admin
 router.get(

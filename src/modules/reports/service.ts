@@ -1617,4 +1617,493 @@ export class ReportsService {
       })),
     };
   }
+
+  // Month-over-Month (MoM) Comparison Report
+  static async getMoMComparison() {
+    const now = new Date();
+    
+    // Current Month Range
+    const currentMonthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const currentMonthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    // Previous Month Range
+    const prevMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+
+    const [currentSales, prevSales] = await Promise.all([
+      prisma.sale.findMany({
+        where: {
+          status: SaleStatus.COMPLETED,
+          createdAt: { gte: currentMonthStart, lte: currentMonthEnd },
+        },
+        include: { items: true },
+      }),
+      prisma.sale.findMany({
+        where: {
+          status: SaleStatus.COMPLETED,
+          createdAt: { gte: prevMonthStart, lte: prevMonthEnd },
+        },
+        include: { items: true },
+      }),
+    ]);
+
+    const calculateMetrics = (salesList: typeof currentSales) => {
+      let revenue = 0;
+      let cost = 0;
+      let units = 0;
+      let discount = 0;
+
+      for (const sale of salesList) {
+        discount += sale.discount || 0;
+        const discountRatio = sale.totalAmount > 0 ? (sale.discount || 0) / sale.totalAmount : 0;
+
+        for (const item of sale.items) {
+          const qty = Number(item.quantity);
+          const price = Number(item.unitPrice);
+          const gross = Number(item.lineTotal || qty * price);
+          const net = gross - gross * discountRatio;
+          const c = qty * Number(item.purchaseCost || 0);
+
+          revenue += net;
+          cost += c;
+          units += qty;
+        }
+      }
+
+      const profit = revenue - cost;
+      const marginPercent = revenue > 0 ? Number(((profit / revenue) * 100).toFixed(1)) : 0;
+
+      return {
+        salesCount: salesList.length,
+        unitsSold: units,
+        revenue: Number(revenue.toFixed(2)),
+        cost: Number(cost.toFixed(2)),
+        profit: Number(profit.toFixed(2)),
+        marginPercent,
+        discount: Number(discount.toFixed(2)),
+      };
+    };
+
+    const currentMonth = calculateMetrics(currentSales);
+    const previousMonth = calculateMetrics(prevSales);
+
+    const calculateGrowth = (curr: number, prev: number) => {
+      if (prev === 0) return curr > 0 ? 100 : 0;
+      return Number((((curr - prev) / Math.abs(prev)) * 100).toFixed(1));
+    };
+
+    const growth = {
+      revenueGrowth: calculateGrowth(currentMonth.revenue, previousMonth.revenue),
+      profitGrowth: calculateGrowth(currentMonth.profit, previousMonth.profit),
+      salesCountGrowth: calculateGrowth(currentMonth.salesCount, previousMonth.salesCount),
+      unitsSoldGrowth: calculateGrowth(currentMonth.unitsSold, previousMonth.unitsSold),
+    };
+
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+
+    return {
+      currentMonthName: `${months[now.getMonth()]} ${now.getFullYear()}`,
+      previousMonthName: `${months[prevMonthStart.getMonth()]} ${prevMonthStart.getFullYear()}`,
+      currentMonth,
+      previousMonth,
+      growth,
+    };
+  }
+
+  // Fast & Slow Moving Product Velocity Report
+  static async getProductVelocity() {
+    const days60 = new Date(Date.now() - 60 * 24 * 60 * 60 * 1000);
+
+    const [products, recentSaleItems] = await Promise.all([
+      prisma.product.findMany({
+        where: { isActive: true },
+        include: {
+          category: { select: { name: true } },
+          company: { select: { name: true } },
+        },
+      }),
+      prisma.saleItem.findMany({
+        where: {
+          sale: {
+            status: SaleStatus.COMPLETED,
+            createdAt: { gte: days60 },
+          },
+        },
+        select: {
+          productId: true,
+          quantity: true,
+          lineTotal: true,
+        },
+      }),
+    ]);
+
+    const salesMap = new Map<string, { qty: number; revenue: number }>();
+    for (const item of recentSaleItems) {
+      const existing = salesMap.get(item.productId) || { qty: 0, revenue: 0 };
+      existing.qty += Number(item.quantity);
+      existing.revenue += Number(item.lineTotal || 0);
+      salesMap.set(item.productId, existing);
+    }
+
+    const items = products.map((p) => {
+      const sales = salesMap.get(p.id) || { qty: 0, revenue: 0 };
+      let categoryType: 'FAST_MOVING' | 'MODERATE' | 'SLOW_MOVING' | 'DEAD_STOCK' = 'DEAD_STOCK';
+
+      if (sales.qty >= 40) {
+        categoryType = 'FAST_MOVING';
+      } else if (sales.qty >= 10) {
+        categoryType = 'MODERATE';
+      } else if (sales.qty > 0) {
+        categoryType = 'SLOW_MOVING';
+      }
+
+      return {
+        id: p.id,
+        name: p.name,
+        sku: p.sku,
+        barcode: p.barcode || '—',
+        category: p.category?.name || 'Uncategorized',
+        company: p.company?.name || '—',
+        currentStock: p.quantity,
+        unit: p.unit,
+        sellingPrice: Number(p.sellingPrice),
+        costPrice: Number(p.costPrice || 0),
+        unitsSold60Days: sales.qty,
+        revenue60Days: Number(sales.revenue.toFixed(2)),
+        velocityCategory: categoryType,
+      };
+    });
+
+    items.sort((a, b) => b.unitsSold60Days - a.unitsSold60Days);
+
+    return {
+      summary: {
+        totalProducts: items.length,
+        fastMovingCount: items.filter((i) => i.velocityCategory === 'FAST_MOVING').length,
+        moderateCount: items.filter((i) => i.velocityCategory === 'MODERATE').length,
+        slowMovingCount: items.filter((i) => i.velocityCategory === 'SLOW_MOVING').length,
+        deadStockCount: items.filter((i) => i.velocityCategory === 'DEAD_STOCK').length,
+      },
+      items,
+    };
+  }
+
+  // Party / Customer Ledger Running Balance Statement
+  static async getCustomerLedger(query: {
+    customerId: string;
+    startDate?: string;
+    endDate?: string;
+  }) {
+    const customer = await prisma.customer.findUnique({
+      where: { id: query.customerId },
+    });
+
+    if (!customer) {
+      throw new Error('Customer not found');
+    }
+
+    const whereDate: any = {};
+    if (query.startDate) whereDate.gte = new Date(query.startDate);
+    if (query.endDate) {
+      const end = new Date(query.endDate);
+      end.setHours(23, 59, 59, 999);
+      whereDate.lte = end;
+    }
+
+    const [sales, payments, returns] = await Promise.all([
+      prisma.sale.findMany({
+        where: {
+          customerId: query.customerId,
+          status: SaleStatus.COMPLETED,
+          ...(Object.keys(whereDate).length > 0 ? { createdAt: whereDate } : {}),
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.payment.findMany({
+        where: {
+          customerId: query.customerId,
+          ...(Object.keys(whereDate).length > 0 ? { createdAt: whereDate } : {}),
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+      prisma.salesReturn.findMany({
+        where: {
+          customerId: query.customerId,
+          ...(Object.keys(whereDate).length > 0 ? { createdAt: whereDate } : {}),
+        },
+        orderBy: { createdAt: 'asc' },
+      }),
+    ]);
+
+    const transactions: any[] = [];
+
+    for (const sale of sales) {
+      transactions.push({
+        id: sale.id,
+        date: sale.createdAt.toISOString().split('T')[0],
+        rawDate: sale.createdAt,
+        type: 'SALE',
+        reference: sale.referenceNumber,
+        description: `Sale Invoice #${sale.referenceNumber} (${sale.paymentType})`,
+        debit: Number(sale.netAmount), // Increases customer due
+        credit: Number(sale.paidAmount), // Immediate paid amount
+      });
+    }
+
+    for (const p of payments) {
+      transactions.push({
+        id: p.id,
+        date: p.createdAt.toISOString().split('T')[0],
+        rawDate: p.createdAt,
+        type: 'PAYMENT',
+        reference: p.paymentNumber || p.id.slice(-6),
+        description: `Payment Received (${p.paymentMethod || 'CASH'}) - ${p.notes || 'Collection'}`,
+        debit: 0,
+        credit: Number(p.amount), // Reduces customer due
+      });
+    }
+
+    for (const ret of returns) {
+      transactions.push({
+        id: ret.id,
+        date: ret.createdAt.toISOString().split('T')[0],
+        rawDate: ret.createdAt,
+        type: 'RETURN',
+        reference: ret.returnNumber,
+        description: `Sales Return #${ret.returnNumber} (${ret.refundType})`,
+        debit: 0,
+        credit: Number(ret.refundAmount || ret.totalAmount), // Reduces due or refunded
+      });
+    }
+
+    transactions.sort((a, b) => a.rawDate.getTime() - b.rawDate.getTime());
+
+    let runningBalance = Number(customer.openingBalance || 0);
+    const ledgerEntries = transactions.map((t) => {
+      runningBalance += t.debit - t.credit;
+      return {
+        ...t,
+        balance: Number(runningBalance.toFixed(2)),
+      };
+    });
+
+    return {
+      customer: {
+        id: customer.id,
+        code: customer.code,
+        name: customer.name,
+        phone: customer.phone,
+        address: customer.address,
+        currentDue: Number(customer.currentDue),
+        openingBalance: Number(customer.openingBalance || 0),
+      },
+      startDate: query.startDate || 'Beginning',
+      endDate: query.endDate || 'Present',
+      ledgerEntries,
+      finalBalance: Number(runningBalance.toFixed(2)),
+    };
+  }
+
+  // Salesperson / User Wise Performance Report
+  static async getUserPerformance(query: {
+    startDate?: string;
+    endDate?: string;
+  }) {
+    const where: Prisma.SaleWhereInput = {
+      status: SaleStatus.COMPLETED,
+    };
+
+    if (query.startDate || query.endDate) {
+      where.createdAt = {};
+      if (query.startDate) where.createdAt.gte = new Date(query.startDate);
+      if (query.endDate) {
+        const end = new Date(query.endDate);
+        end.setHours(23, 59, 59, 999);
+        where.createdAt.lte = end;
+      }
+    }
+
+    const sales = await prisma.sale.findMany({
+      where,
+      include: {
+        createdBy: { select: { id: true, name: true, email: true, role: true } },
+      },
+    });
+
+    const userMap = new Map<string, {
+      userId: string;
+      userName: string;
+      userRole: string;
+      salesCount: number;
+      totalRevenue: number;
+      totalCollected: number;
+      totalDue: number;
+    }>();
+
+    for (const s of sales) {
+      const uId = s.createdById || 'SYSTEM';
+      const uName = s.createdBy?.name || 'System / Cashier';
+      const uRole = s.createdBy?.role || 'STAFF';
+
+      const existing = userMap.get(uId) || {
+        userId: uId,
+        userName: uName,
+        userRole: uRole,
+        salesCount: 0,
+        totalRevenue: 0,
+        totalCollected: 0,
+        totalDue: 0,
+      };
+
+      existing.salesCount += 1;
+      existing.totalRevenue += Number(s.netAmount);
+      existing.totalCollected += Number(s.paidAmount);
+      existing.totalDue += Number(s.dueAmount || 0);
+
+      userMap.set(uId, existing);
+    }
+
+    const users = Array.from(userMap.values()).map((u) => ({
+      ...u,
+      totalRevenue: Number(u.totalRevenue.toFixed(2)),
+      totalCollected: Number(u.totalCollected.toFixed(2)),
+      totalDue: Number(u.totalDue.toFixed(2)),
+      avgOrderValue: u.salesCount > 0 ? Number((u.totalRevenue / u.salesCount).toFixed(2)) : 0,
+    }));
+
+    users.sort((a, b) => b.totalRevenue - a.totalRevenue);
+
+    return {
+      totalUsers: users.length,
+      users,
+    };
+  }
+
+  // Low Stock / Reorder Alert List
+  static async getReorderAlerts() {
+    const products = await prisma.product.findMany({
+      where: {
+        isActive: true,
+      },
+      include: {
+        company: { select: { name: true } },
+        category: { select: { name: true } },
+      },
+      orderBy: { quantity: 'asc' },
+    });
+
+    const lowStockItems = products
+      .filter((p) => p.quantity <= p.reorderLevel)
+      .map((p) => {
+        const requiredQty = Math.max(1, p.reorderLevel * 2 - p.quantity);
+        const totalEstimatedCost = requiredQty * Number(p.costPrice || 0);
+
+        return {
+          id: p.id,
+          sku: p.sku,
+          barcode: p.barcode || '—',
+          name: p.name,
+          company: p.company?.name || '—',
+          category: p.category?.name || 'Uncategorized',
+          unit: p.unit,
+          currentStock: p.quantity,
+          reorderLevel: p.reorderLevel,
+          suggestedReorderQty: requiredQty,
+          costPrice: Number(p.costPrice || 0),
+          totalEstimatedCost: Number(totalEstimatedCost.toFixed(2)),
+          urgency: p.quantity <= 0 ? 'CRITICAL' : 'WARNING',
+        };
+      });
+
+    const totalEstimatedCapitalNeeded = lowStockItems.reduce(
+      (acc, i) => acc + i.totalEstimatedCost,
+      0
+    );
+
+    return {
+      summary: {
+        totalAlerts: lowStockItems.length,
+        outOfStockCount: lowStockItems.filter((i) => i.currentStock <= 0).length,
+        lowStockCount: lowStockItems.filter((i) => i.currentStock > 0).length,
+        totalEstimatedCapitalNeeded: Number(totalEstimatedCapitalNeeded.toFixed(2)),
+      },
+      items: lowStockItems,
+    };
+  }
+
+  // Stock Aging Report
+  static async getStockAging() {
+    const products = await prisma.product.findMany({
+      where: { isActive: true },
+      include: {
+        category: { select: { name: true } },
+        company: { select: { name: true } },
+        salesItems: {
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+          select: { createdAt: true },
+        },
+      },
+    });
+
+    const now = new Date();
+
+    const items = products.map((p) => {
+      const lastSaleDate = p.salesItems[0]?.createdAt || p.createdAt;
+      const ageDays = Math.floor(
+        (now.getTime() - new Date(lastSaleDate).getTime()) / (1000 * 60 * 60 * 24)
+      );
+
+      let ageBracket: '0-30 Days' | '31-60 Days' | '61-90 Days' | '90+ Days (Dead Stock)' = '0-30 Days';
+
+      if (ageDays > 90) {
+        ageBracket = '90+ Days (Dead Stock)';
+      } else if (ageDays > 60) {
+        ageBracket = '61-90 Days';
+      } else if (ageDays > 30) {
+        ageBracket = '31-60 Days';
+      }
+
+      const totalValuation = p.quantity * Number(p.costPrice || 0);
+
+      return {
+        id: p.id,
+        sku: p.sku,
+        barcode: p.barcode || '—',
+        name: p.name,
+        company: p.company?.name || '—',
+        category: p.category?.name || 'Uncategorized',
+        unit: p.unit,
+        currentStock: p.quantity,
+        costPrice: Number(p.costPrice || 0),
+        totalValuation: Number(totalValuation.toFixed(2)),
+        lastSaleDate: lastSaleDate.toISOString().split('T')[0],
+        ageDays,
+        ageBracket,
+      };
+    });
+
+    items.sort((a, b) => b.ageDays - a.ageDays);
+
+    const summary = {
+      bracket0_30: items.filter((i) => i.ageBracket === '0-30 Days').length,
+      bracket31_60: items.filter((i) => i.ageBracket === '31-60 Days').length,
+      bracket61_90: items.filter((i) => i.ageBracket === '61-90 Days').length,
+      bracket90Plus: items.filter((i) => i.ageBracket === '90+ Days (Dead Stock)').length,
+      deadStockTiedCapital: items
+        .filter((i) => i.ageBracket === '90+ Days (Dead Stock)')
+        .reduce((acc, i) => acc + i.totalValuation, 0),
+    };
+
+    return {
+      summary: {
+        ...summary,
+        deadStockTiedCapital: Number(summary.deadStockTiedCapital.toFixed(2)),
+      },
+      items,
+    };
+  }
 }
