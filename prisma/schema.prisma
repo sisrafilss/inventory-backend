@@ -192,18 +192,36 @@ model Customer {
   address     String?
   openingDue  Decimal  @default(0.00) @db.Decimal(12, 2)
   currentDue  Decimal  @default(0.00) @db.Decimal(12, 2)
+  srGroup     String?
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
   sales    Sale[]
   payments PartyPayment[]
+  srDues   CustomerSrDue[]
 
   @@index([code])
   @@index([name])
   @@index([companyName])
   @@index([phone])
+  @@index([srGroup])
   @@index([isActive])
+}
+
+model CustomerSrDue {
+  id         String   @id @default(uuid())
+  customerId String
+  customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  srName     String
+  openingDue Decimal  @default(0.00) @db.Decimal(12, 2)
+  currentDue Decimal  @default(0.00) @db.Decimal(12, 2)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([customerId, srName])
+  @@index([customerId])
+  @@index([srName])
 }
 
 model Purchase {

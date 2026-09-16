@@ -275,6 +275,7 @@ export class PartiesService {
     search?: string;
     isActive?: boolean;
     hasDue?: boolean;
+    srGroup?: string;
   }) {
     const where: Prisma.CustomerWhereInput = {};
 
@@ -286,6 +287,14 @@ export class PartiesService {
       where.currentDue = { gt: 0 };
     }
 
+    if (query.srGroup && query.srGroup.trim()) {
+      const srg = query.srGroup.trim();
+      where.OR = [
+        { srGroup: { equals: srg, mode: "insensitive" } },
+        { srDues: { some: { srName: { equals: srg, mode: "insensitive" } } } },
+      ];
+    }
+
     if (query.search && query.search.trim()) {
       const q = query.search.trim();
       where.OR = [
@@ -294,6 +303,7 @@ export class PartiesService {
         { companyName: { contains: q, mode: "insensitive" } },
         { phone: { contains: q, mode: "insensitive" } },
         { address: { contains: q, mode: "insensitive" } },
+        { srGroup: { contains: q, mode: "insensitive" } },
       ];
     }
 
@@ -304,6 +314,7 @@ export class PartiesService {
         _count: {
           select: { sales: true, payments: true },
         },
+        srDues: true,
       },
     });
   }
@@ -458,6 +469,7 @@ export class PartiesService {
     const customer = await prisma.customer.findUnique({
       where: { id },
       include: {
+        srDues: true,
         sales: {
           take: 10,
           orderBy: { createdAt: "desc" },
@@ -485,6 +497,23 @@ export class PartiesService {
     return customer;
   }
 
+  static async getSrGroups() {
+    const duesSrs = await prisma.customerSrDue.findMany({
+      select: { srName: true },
+      distinct: ["srName"],
+    });
+    const custSrs = await prisma.customer.findMany({
+      where: { srGroup: { not: null } },
+      select: { srGroup: true },
+      distinct: ["srGroup"],
+    });
+
+    const set = new Set<string>();
+    duesSrs.forEach((d) => d.srName && set.add(d.srName.trim()));
+    custSrs.forEach((c) => c.srGroup && set.add(c.srGroup!.trim()));
+    return Array.from(set).sort();
+  }
+
   static async createCustomer(
     actorId: string,
     data: {
@@ -495,6 +524,12 @@ export class PartiesService {
       email?: string | null;
       address?: string | null;
       openingDue?: number;
+      srGroup?: string | null;
+      srDues?: Array<{
+        srName: string;
+        openingDue?: number;
+        currentDue?: number;
+      }>;
       isActive?: boolean;
     },
   ) {
@@ -518,7 +553,20 @@ export class PartiesService {
       );
     }
 
-    const openingDue = data.openingDue || 0;
+    // Process SR dues if provided
+    const validSrDues = (data.srDues || [])
+      .filter((d) => d.srName && d.srName.trim())
+      .map((d) => ({
+        srName: d.srName.trim(),
+        openingDue: Number(d.openingDue ?? d.currentDue) || 0,
+        currentDue: Number(d.currentDue ?? d.openingDue) || 0,
+      }));
+
+    const srDuesSum = validSrDues.reduce((sum, d) => sum + d.openingDue, 0);
+    const openingDue =
+      validSrDues.length > 0 ? srDuesSum : data.openingDue || 0;
+    const primarySrGroup =
+      (data.srGroup && data.srGroup.trim()) || validSrDues[0]?.srName || null;
 
     const customer = await prisma.customer.create({
       data: {
@@ -532,9 +580,32 @@ export class PartiesService {
         email: data.email && data.email.trim() ? data.email.trim() : null,
         address:
           data.address && data.address.trim() ? data.address.trim() : null,
+        srGroup: primarySrGroup,
         openingDue,
         currentDue: openingDue,
         isActive: data.isActive !== undefined ? data.isActive : true,
+        ...(validSrDues.length > 0
+          ? {
+              srDues: {
+                create: validSrDues,
+              },
+            }
+          : primarySrGroup && openingDue > 0
+            ? {
+                srDues: {
+                  create: [
+                    {
+                      srName: primarySrGroup,
+                      openingDue,
+                      currentDue: openingDue,
+                    },
+                  ],
+                },
+              }
+            : {}),
+      },
+      include: {
+        srDues: true,
       },
     });
 
@@ -548,6 +619,7 @@ export class PartiesService {
         name: customer.name,
         companyName: customer.companyName,
         phone: customer.phone,
+        srGroup: customer.srGroup,
         currentDue: customer.currentDue,
       },
     });
@@ -565,10 +637,19 @@ export class PartiesService {
       phone?: string | null;
       email?: string | null;
       address?: string | null;
+      srGroup?: string | null;
+      srDues?: Array<{
+        srName: string;
+        openingDue?: number;
+        currentDue?: number;
+      }>;
       isActive?: boolean;
     },
   ) {
-    const customer = await prisma.customer.findUnique({ where: { id } });
+    const customer = await prisma.customer.findUnique({
+      where: { id },
+      include: { srDues: true },
+    });
     if (!customer) {
       throw new AppError("Customer not found.", 404, "CUSTOMER_NOT_FOUND");
     }
@@ -601,6 +682,28 @@ export class PartiesService {
       codeUpdate = trimmed;
     }
 
+    let newCurrentDue: number | undefined = undefined;
+    if (data.srDues !== undefined) {
+      const validSrDues = data.srDues
+        .filter((d) => d.srName && d.srName.trim())
+        .map((d) => ({
+          srName: d.srName.trim(),
+          openingDue: Number(d.openingDue ?? d.currentDue) || 0,
+          currentDue: Number(d.currentDue ?? d.openingDue) || 0,
+        }));
+
+      await prisma.customerSrDue.deleteMany({ where: { customerId: id } });
+      if (validSrDues.length > 0) {
+        await prisma.customerSrDue.createMany({
+          data: validSrDues.map((d) => ({
+            customerId: id,
+            ...d,
+          })),
+        });
+        newCurrentDue = validSrDues.reduce((acc, d) => acc + d.currentDue, 0);
+      }
+    }
+
     const updated = await prisma.customer.update({
       where: { id },
       data: {
@@ -621,7 +724,16 @@ export class PartiesService {
         ...(data.address !== undefined && {
           address: data.address ? data.address.trim() : null,
         }),
+        ...(data.srGroup !== undefined && {
+          srGroup: data.srGroup ? data.srGroup.trim() : null,
+        }),
+        ...(newCurrentDue !== undefined && {
+          currentDue: newCurrentDue,
+        }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
+      },
+      include: {
+        srDues: true,
       },
     });
 

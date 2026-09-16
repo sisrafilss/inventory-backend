@@ -276,27 +276,142 @@ export class ReportsService {
   static async getDueList(query: {
     type?: "ALL" | "CUSTOMER" | "SUPPLIER";
     search?: string;
+    srGroup?: string;
   }) {
     const type = query.type || "ALL";
     const s = query.search?.trim();
+    const srGroup = query.srGroup?.trim();
 
-    let customers: any[] = [];
+    // Collect distinct SR groups from customerSrDue and customer.srGroup
+    const duesSrs = await prisma.customerSrDue.findMany({
+      select: { srName: true },
+      distinct: ["srName"],
+    });
+    const custSrs = await prisma.customer.findMany({
+      where: { srGroup: { not: null } },
+      select: { srGroup: true },
+      distinct: ["srGroup"],
+    });
+    const srSet = new Set<string>();
+    duesSrs.forEach((d) => d.srName && srSet.add(d.srName.trim()));
+    custSrs.forEach((c) => c.srGroup && srSet.add(c.srGroup!.trim()));
+    const srGroups = Array.from(srSet).sort();
+
+    let customerDues: any[] = [];
     let suppliers: any[] = [];
 
     if (type === "ALL" || type === "CUSTOMER") {
-      const customerWhere: Prisma.CustomerWhereInput = {
-        currentDue: { gt: 0 },
-      };
-      if (s) {
-        customerWhere.OR = [
-          { name: { contains: s, mode: "insensitive" } },
-          { phone: { contains: s, mode: "insensitive" } },
-        ];
+      if (srGroup && srGroup !== "ALL") {
+        // Filter specifically by this SR Group
+        const specificSrDues = await prisma.customerSrDue.findMany({
+          where: {
+            srName: { equals: srGroup, mode: "insensitive" },
+            currentDue: { gt: 0 },
+            ...(s
+              ? {
+                  customer: {
+                    OR: [
+                      { name: { contains: s, mode: "insensitive" } },
+                      { phone: { contains: s, mode: "insensitive" } },
+                      { companyName: { contains: s, mode: "insensitive" } },
+                    ],
+                  },
+                }
+              : {}),
+          },
+          include: { customer: true },
+          orderBy: { currentDue: "desc" },
+        });
+
+        const matchedCustIds = new Set(specificSrDues.map((d) => d.customerId));
+
+        // Also check if any Customer has srGroup directly matching without separate CustomerSrDue
+        const directCusts = await prisma.customer.findMany({
+          where: {
+            id: { notIn: Array.from(matchedCustIds) },
+            srGroup: { equals: srGroup, mode: "insensitive" },
+            currentDue: { gt: 0 },
+            ...(s
+              ? {
+                  OR: [
+                    { name: { contains: s, mode: "insensitive" } },
+                    { phone: { contains: s, mode: "insensitive" } },
+                    { companyName: { contains: s, mode: "insensitive" } },
+                  ],
+                }
+              : {}),
+          },
+        });
+
+        customerDues = [
+          ...specificSrDues.map((d) => ({
+            id: d.customer.id,
+            customerId: d.customer.id,
+            name: d.customer.name,
+            companyName: d.customer.companyName,
+            phone: d.customer.phone,
+            srGroup: d.srName,
+            dueAmount: Number(d.currentDue),
+            currentDue: Number(d.currentDue),
+          })),
+          ...directCusts.map((c) => ({
+            id: c.id,
+            customerId: c.id,
+            name: c.name,
+            companyName: c.companyName,
+            phone: c.phone,
+            srGroup: c.srGroup,
+            dueAmount: Number(c.currentDue),
+            currentDue: Number(c.currentDue),
+          })),
+        ].sort((a, b) => b.dueAmount - a.dueAmount);
+      } else {
+        // All SRs: list customers with dues, including their SR breakdown
+        const customerWhere: Prisma.CustomerWhereInput = {
+          currentDue: { gt: 0 },
+        };
+        if (s) {
+          customerWhere.OR = [
+            { name: { contains: s, mode: "insensitive" } },
+            { phone: { contains: s, mode: "insensitive" } },
+            { companyName: { contains: s, mode: "insensitive" } },
+            { srGroup: { contains: s, mode: "insensitive" } },
+          ];
+        }
+        const customers = await prisma.customer.findMany({
+          where: customerWhere,
+          include: {
+            srDues: {
+              where: { currentDue: { gt: 0 } },
+            },
+          },
+          orderBy: { currentDue: "desc" },
+        });
+
+        customerDues = customers.map((c) => {
+          const srBreakdown = c.srDues.map((d) => ({
+            srName: d.srName,
+            dueAmount: Number(d.currentDue),
+          }));
+          const srLabel =
+            c.srGroup ||
+            (c.srDues.length > 0
+              ? c.srDues.map((d) => d.srName).join(", ")
+              : "General");
+
+          return {
+            id: c.id,
+            customerId: c.id,
+            name: c.name,
+            companyName: c.companyName,
+            phone: c.phone,
+            srGroup: srLabel,
+            dueAmount: Number(c.currentDue),
+            currentDue: Number(c.currentDue),
+            srDues: srBreakdown,
+          };
+        });
       }
-      customers = await prisma.customer.findMany({
-        where: customerWhere,
-        orderBy: { currentDue: "desc" },
-      });
     }
 
     if (type === "ALL" || type === "SUPPLIER") {
@@ -316,8 +431,8 @@ export class ReportsService {
       });
     }
 
-    const totalCustomerDue = customers.reduce(
-      (acc, c) => acc + Number(c.currentDue),
+    const totalCustomerDue = customerDues.reduce(
+      (acc, c) => acc + Number(c.dueAmount || c.currentDue || 0),
       0,
     );
     const totalSupplierDue = suppliers.reduce(
@@ -327,13 +442,13 @@ export class ReportsService {
 
     return {
       type,
+      selectedSrGroup: srGroup || "ALL",
+      srGroups,
       totalCustomerDue,
       totalSupplierDue,
       netBalance: totalCustomerDue - totalSupplierDue, // positive means receivables > payables
-      customers: customers.map((c) => ({
-        ...c,
-        currentDue: Number(c.currentDue),
-      })),
+      customerDues,
+      customers: customerDues,
       suppliers: suppliers.map((s) => ({
         ...s,
         currentDue: Number(s.currentDue),

@@ -87,6 +87,7 @@ export class ReportsController {
       const report = await ReportsService.getDueList({
         type: req.query.type as "ALL" | "CUSTOMER" | "SUPPLIER",
         search: req.query.search as string,
+        srGroup: req.query.srGroup as string,
       });
       return sendSuccess(res, report);
     } catch (error) {
@@ -109,13 +110,11 @@ export class ReportsController {
       return sendSuccess(res, report);
     } catch (error: any) {
       if (error.message === "FORBIDDEN_PROFIT_ACCESS") {
-        return res
-          .status(403)
-          .json({
-            success: false,
-            message:
-              "Forbidden: Only Admin and Super Admin can view profit data.",
-          });
+        return res.status(403).json({
+          success: false,
+          message:
+            "Forbidden: Only Admin and Super Admin can view profit data.",
+        });
       }
       if (error.message === "INVOICE_NOT_FOUND") {
         return res
@@ -215,13 +214,11 @@ export class ReportsController {
       return sendSuccess(res, report);
     } catch (error: any) {
       if (error.message === "FORBIDDEN_BALANCE_SHEET") {
-        return res
-          .status(403)
-          .json({
-            success: false,
-            message:
-              "Forbidden: Only Admin, Super Admin and Manager can view Balance Sheet.",
-          });
+        return res.status(403).json({
+          success: false,
+          message:
+            "Forbidden: Only Admin, Super Admin and Manager can view Balance Sheet.",
+        });
       }
       next(error);
     }

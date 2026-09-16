@@ -95,12 +95,23 @@ export class PartiesController {
           ? req.query.isActive === "true"
           : undefined;
       const hasDue = req.query.hasDue === "true";
+      const srGroup = req.query.srGroup as string;
       const customers = await PartiesService.listCustomers({
         search: req.query.search as string,
         isActive,
         hasDue,
+        srGroup,
       });
       return sendSuccess(res, customers);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async getSrGroups(req: Request, res: Response, next: NextFunction) {
+    try {
+      const groups = await PartiesService.getSrGroups();
+      return sendSuccess(res, groups);
     } catch (error) {
       next(error);
     }

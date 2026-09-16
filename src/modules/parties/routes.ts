@@ -52,6 +52,7 @@ router.get(
   PartiesController.listCustomers,
 );
 router.get("/customers/check-code/:code", PartiesController.checkCustomerCode);
+router.get("/customers/sr-groups", PartiesController.getSrGroups);
 router.get("/customers/by-code/:code", PartiesController.getCustomerByCode);
 router.get("/customers/:id", PartiesController.getCustomerById);
 router.post(

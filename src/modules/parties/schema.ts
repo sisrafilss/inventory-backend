@@ -60,6 +60,16 @@ export const createCustomerSchema = z.object({
       .or(z.literal("")),
     address: z.string().max(300).optional().nullable(),
     openingDue: z.number().min(0).optional(),
+    srGroup: z.string().max(100).optional().nullable(),
+    srDues: z
+      .array(
+        z.object({
+          srName: z.string().trim().min(1, "SR name cannot be empty"),
+          openingDue: z.number().min(0).optional(),
+          currentDue: z.number().min(0).optional(),
+        }),
+      )
+      .optional(),
     isActive: z.boolean().optional(),
   }),
 });
@@ -80,6 +90,16 @@ export const updateCustomerSchema = z.object({
     phone: z.string().max(30).optional().nullable().or(z.literal("")),
     email: z.string().email().optional().nullable().or(z.literal("")),
     address: z.string().max(300).optional().nullable(),
+    srGroup: z.string().max(100).optional().nullable(),
+    srDues: z
+      .array(
+        z.object({
+          srName: z.string().trim().min(1, "SR name cannot be empty"),
+          openingDue: z.number().min(0).optional(),
+          currentDue: z.number().min(0).optional(),
+        }),
+      )
+      .optional(),
     isActive: z.boolean().optional(),
   }),
 });
@@ -89,5 +109,6 @@ export const listPartiesSchema = z.object({
     search: z.string().optional(),
     isActive: z.enum(["true", "false"]).optional(),
     hasDue: z.enum(["true", "false"]).optional(),
+    srGroup: z.string().optional(),
   }),
 });
