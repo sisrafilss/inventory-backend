@@ -1825,7 +1825,7 @@ export class ReportsService {
         },
         orderBy: { createdAt: 'asc' },
       }),
-      prisma.payment.findMany({
+      prisma.partyPayment.findMany({
         where: {
           customerId: query.customerId,
           ...(Object.keys(whereDate).length > 0 ? { createdAt: whereDate } : {}),
@@ -1862,8 +1862,8 @@ export class ReportsService {
         date: p.createdAt.toISOString().split('T')[0],
         rawDate: p.createdAt,
         type: 'PAYMENT',
-        reference: p.paymentNumber || p.id.slice(-6),
-        description: `Payment Received (${p.paymentMethod || 'CASH'}) - ${p.notes || 'Collection'}`,
+        reference: p.receiptNumber || p.id.slice(-6),
+        description: `Payment Received (${p.paymentMethod || 'CASH'}) - ${p.referenceNote || 'Collection'}`,
         debit: 0,
         credit: Number(p.amount), // Reduces customer due
       });
@@ -1884,7 +1884,7 @@ export class ReportsService {
 
     transactions.sort((a, b) => a.rawDate.getTime() - b.rawDate.getTime());
 
-    let runningBalance = Number(customer.openingBalance || 0);
+    let runningBalance = Number(customer.openingDue || 0);
     const ledgerEntries = transactions.map((t) => {
       runningBalance += t.debit - t.credit;
       return {
@@ -1901,7 +1901,7 @@ export class ReportsService {
         phone: customer.phone,
         address: customer.address,
         currentDue: Number(customer.currentDue),
-        openingBalance: Number(customer.openingBalance || 0),
+        openingBalance: Number(customer.openingDue || 0),
       },
       startDate: query.startDate || 'Beginning',
       endDate: query.endDate || 'Present',
@@ -1999,9 +1999,9 @@ export class ReportsService {
     });
 
     const lowStockItems = products
-      .filter((p) => p.quantity <= p.reorderLevel)
+      .filter((p) => Number(p.quantity) <= Number(p.reorderLevel))
       .map((p) => {
-        const requiredQty = Math.max(1, p.reorderLevel * 2 - p.quantity);
+        const requiredQty = Math.max(1, Number(p.reorderLevel) * 2 - Number(p.quantity));
         const totalEstimatedCost = requiredQty * Number(p.costPrice || 0);
 
         return {
@@ -2012,12 +2012,12 @@ export class ReportsService {
           company: p.company?.name || '—',
           category: p.category?.name || 'Uncategorized',
           unit: p.unit,
-          currentStock: p.quantity,
-          reorderLevel: p.reorderLevel,
+          currentStock: Number(p.quantity),
+          reorderLevel: Number(p.reorderLevel),
           suggestedReorderQty: requiredQty,
           costPrice: Number(p.costPrice || 0),
           totalEstimatedCost: Number(totalEstimatedCost.toFixed(2)),
-          urgency: p.quantity <= 0 ? 'CRITICAL' : 'WARNING',
+          urgency: Number(p.quantity) <= 0 ? 'CRITICAL' : 'WARNING',
         };
       });
 
@@ -2029,8 +2029,8 @@ export class ReportsService {
     return {
       summary: {
         totalAlerts: lowStockItems.length,
-        outOfStockCount: lowStockItems.filter((i) => i.currentStock <= 0).length,
-        lowStockCount: lowStockItems.filter((i) => i.currentStock > 0).length,
+        outOfStockCount: lowStockItems.filter((i) => Number(i.currentStock) <= 0).length,
+        lowStockCount: lowStockItems.filter((i) => Number(i.currentStock) > 0).length,
         totalEstimatedCapitalNeeded: Number(totalEstimatedCapitalNeeded.toFixed(2)),
       },
       items: lowStockItems,
@@ -2044,10 +2044,10 @@ export class ReportsService {
       include: {
         category: { select: { name: true } },
         company: { select: { name: true } },
-        salesItems: {
-          orderBy: { createdAt: 'desc' },
+        saleItems: {
+          orderBy: { sale: { createdAt: 'desc' } },
           take: 1,
-          select: { createdAt: true },
+          select: { sale: { select: { createdAt: true } } },
         },
       },
     });
@@ -2055,7 +2055,7 @@ export class ReportsService {
     const now = new Date();
 
     const items = products.map((p) => {
-      const lastSaleDate = p.salesItems[0]?.createdAt || p.createdAt;
+      const lastSaleDate = p.saleItems[0]?.sale?.createdAt || p.createdAt;
       const ageDays = Math.floor(
         (now.getTime() - new Date(lastSaleDate).getTime()) / (1000 * 60 * 60 * 24)
       );
@@ -2070,7 +2070,7 @@ export class ReportsService {
         ageBracket = '31-60 Days';
       }
 
-      const totalValuation = p.quantity * Number(p.costPrice || 0);
+      const totalValuation = Number(p.quantity) * Number(p.costPrice || 0);
 
       return {
         id: p.id,
@@ -2080,10 +2080,10 @@ export class ReportsService {
         company: p.company?.name || '—',
         category: p.category?.name || 'Uncategorized',
         unit: p.unit,
-        currentStock: p.quantity,
+        currentStock: Number(p.quantity),
         costPrice: Number(p.costPrice || 0),
         totalValuation: Number(totalValuation.toFixed(2)),
-        lastSaleDate: lastSaleDate.toISOString().split('T')[0],
+        lastSaleDate: new Date(lastSaleDate).toISOString().split('T')[0],
         ageDays,
         ageBracket,
       };

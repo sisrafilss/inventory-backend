@@ -1,5 +1,5 @@
 {
-  "exportedAt": "2026-09-16T01:09:32.695Z",
+  "exportedAt": "2026-09-16T08:34:40.378Z",
   "counts": {
     "storeSettings": 0,
     "companies": 3,
@@ -17,7 +17,7 @@
     "stockMovements": 24,
     "expenses": 1,
     "partyPayments": 0,
-    "auditLogs": 500
+    "auditLogs": 501
   },
   "data": {
     "storeSettings": [],
@@ -238,9 +238,9 @@
         "status": "ACTIVE",
         "warehouseId": null,
         "mustChangePassword": false,
-        "lastLoginAt": "2026-09-15T17:43:47.732Z",
+        "lastLoginAt": "2026-09-16T03:18:07.335Z",
         "createdAt": "2026-09-09T10:00:31.524Z",
-        "updatedAt": "2026-09-15T17:43:47.735Z"
+        "updatedAt": "2026-09-16T03:18:07.336Z"
       }
     ],
     "products": [
@@ -1890,6 +1890,15 @@
         "createdAt": "2026-09-10T10:44:35.135Z"
       },
       {
+        "id": "72fc2d4c-a879-4457-996b-725ba1371717",
+        "actorId": "f1b0ce8a-fee3-48e6-a87b-0d5213281d5a",
+        "action": "USER_LOGIN",
+        "entityType": "User",
+        "entityId": "f1b0ce8a-fee3-48e6-a87b-0d5213281d5a",
+        "metadata": null,
+        "createdAt": "2026-09-12T15:50:27.833Z"
+      },
+      {
         "id": "473a575e-d983-468b-a55f-071d65c6d739",
         "actorId": "f1b0ce8a-fee3-48e6-a87b-0d5213281d5a",
         "action": "SALE_CREATED",
@@ -2276,15 +2285,6 @@
           "referenceNumber": "SAL-196091-9253"
         },
         "createdAt": "2026-09-12T15:49:56.107Z"
-      },
-      {
-        "id": "72fc2d4c-a879-4457-996b-725ba1371717",
-        "actorId": "f1b0ce8a-fee3-48e6-a87b-0d5213281d5a",
-        "action": "USER_LOGIN",
-        "entityType": "User",
-        "entityId": "f1b0ce8a-fee3-48e6-a87b-0d5213281d5a",
-        "metadata": null,
-        "createdAt": "2026-09-12T15:50:27.833Z"
       },
       {
         "id": "f2a01cc0-65f6-49a1-91d3-82585a1d9fb8",
@@ -3038,6 +3038,47 @@
         "createdAt": "2026-09-14T14:58:22.058Z"
       },
       {
+        "id": "4b368cf6-c9a1-4363-97af-495d75d993d6",
+        "actorId": null,
+        "action": "USER_CREATED",
+        "entityType": "User",
+        "entityId": "391009cf-cb63-46b2-a86d-54cd3ff31284",
+        "metadata": {
+          "name": "Test Manager",
+          "role": "MANAGER",
+          "email": "mgr_1789228276758@inventory.test",
+          "warehouseId": "58179fe3-9e1e-405a-b0bb-b9b431c5f01e"
+        },
+        "createdAt": "2026-09-12T15:51:17.393Z"
+      },
+      {
+        "id": "24fc895b-de6e-46b8-8c4d-ef89beb1b330",
+        "actorId": null,
+        "action": "USER_LOGIN",
+        "entityType": "User",
+        "entityId": "391009cf-cb63-46b2-a86d-54cd3ff31284",
+        "metadata": null,
+        "createdAt": "2026-09-12T15:51:17.491Z"
+      },
+      {
+        "id": "821bbc12-a52f-4145-a5d3-0f916e020bb3",
+        "actorId": null,
+        "action": "USER_PASSWORD_CHANGED",
+        "entityType": "User",
+        "entityId": "391009cf-cb63-46b2-a86d-54cd3ff31284",
+        "metadata": null,
+        "createdAt": "2026-09-12T15:51:17.686Z"
+      },
+      {
+        "id": "6ded19fe-5ec4-4dfa-b5ce-e74b19758805",
+        "actorId": null,
+        "action": "USER_LOGIN",
+        "entityType": "User",
+        "entityId": "391009cf-cb63-46b2-a86d-54cd3ff31284",
+        "metadata": null,
+        "createdAt": "2026-09-12T15:51:17.783Z"
+      },
+      {
         "id": "4e92cb10-f074-46ad-b0d8-166b22cc41bd",
         "actorId": "f1b0ce8a-fee3-48e6-a87b-0d5213281d5a",
         "action": "CUSTOMER_UPDATED",
@@ -3437,47 +3478,6 @@
           "initialQuantity": 100
         },
         "createdAt": "2026-09-12T15:51:17.257Z"
-      },
-      {
-        "id": "4b368cf6-c9a1-4363-97af-495d75d993d6",
-        "actorId": null,
-        "action": "USER_CREATED",
-        "entityType": "User",
-        "entityId": "391009cf-cb63-46b2-a86d-54cd3ff31284",
-        "metadata": {
-          "name": "Test Manager",
-          "role": "MANAGER",
-          "email": "mgr_1789228276758@inventory.test",
-          "warehouseId": "58179fe3-9e1e-405a-b0bb-b9b431c5f01e"
-        },
-        "createdAt": "2026-09-12T15:51:17.393Z"
-      },
-      {
-        "id": "24fc895b-de6e-46b8-8c4d-ef89beb1b330",
-        "actorId": null,
-        "action": "USER_LOGIN",
-        "entityType": "User",
-        "entityId": "391009cf-cb63-46b2-a86d-54cd3ff31284",
-        "metadata": null,
-        "createdAt": "2026-09-12T15:51:17.491Z"
-      },
-      {
-        "id": "821bbc12-a52f-4145-a5d3-0f916e020bb3",
-        "actorId": null,
-        "action": "USER_PASSWORD_CHANGED",
-        "entityType": "User",
-        "entityId": "391009cf-cb63-46b2-a86d-54cd3ff31284",
-        "metadata": null,
-        "createdAt": "2026-09-12T15:51:17.686Z"
-      },
-      {
-        "id": "6ded19fe-5ec4-4dfa-b5ce-e74b19758805",
-        "actorId": null,
-        "action": "USER_LOGIN",
-        "entityType": "User",
-        "entityId": "391009cf-cb63-46b2-a86d-54cd3ff31284",
-        "metadata": null,
-        "createdAt": "2026-09-12T15:51:17.783Z"
       },
       {
         "id": "12f3f0ad-5ba0-4d7a-b2f3-6a23840902f6",
@@ -5085,6 +5085,15 @@
         "createdAt": "2026-09-12T17:18:13.963Z"
       },
       {
+        "id": "899d4907-258b-4905-bd9b-fb6856d63b88",
+        "actorId": null,
+        "action": "USER_PASSWORD_CHANGED",
+        "entityType": "User",
+        "entityId": "5c113514-09cd-4d13-8ea8-811dd3e33d4b",
+        "metadata": null,
+        "createdAt": "2026-09-15T14:49:11.509Z"
+      },
+      {
         "id": "5637bc16-6f8f-4688-bf0d-dc30ccf928c8",
         "actorId": null,
         "action": "PRODUCT_CREATED",
@@ -5498,6 +5507,15 @@
         "createdAt": "2026-09-15T14:49:11.244Z"
       },
       {
+        "id": "2785870b-6c87-487e-be3e-501ff4965077",
+        "actorId": null,
+        "action": "USER_LOGIN",
+        "entityType": "User",
+        "entityId": "5c113514-09cd-4d13-8ea8-811dd3e33d4b",
+        "metadata": null,
+        "createdAt": "2026-09-15T14:49:11.697Z"
+      },
+      {
         "id": "e78a7cd0-c778-4d5e-8edb-eac7360eb560",
         "actorId": "f1b0ce8a-fee3-48e6-a87b-0d5213281d5a",
         "action": "PRODUCT_CREATED",
@@ -5888,24 +5906,6 @@
           "referenceNumber": "SAL-151624-1423"
         },
         "createdAt": "2026-09-12T16:55:51.656Z"
-      },
-      {
-        "id": "899d4907-258b-4905-bd9b-fb6856d63b88",
-        "actorId": null,
-        "action": "USER_PASSWORD_CHANGED",
-        "entityType": "User",
-        "entityId": "5c113514-09cd-4d13-8ea8-811dd3e33d4b",
-        "metadata": null,
-        "createdAt": "2026-09-15T14:49:11.509Z"
-      },
-      {
-        "id": "2785870b-6c87-487e-be3e-501ff4965077",
-        "actorId": null,
-        "action": "USER_LOGIN",
-        "entityType": "User",
-        "entityId": "5c113514-09cd-4d13-8ea8-811dd3e33d4b",
-        "metadata": null,
-        "createdAt": "2026-09-15T14:49:11.697Z"
       },
       {
         "id": "2a8741ed-285e-47eb-985e-6284a0c4a432",
@@ -8285,6 +8285,15 @@
           "referenceNumber": "SAL-232809-1480"
         },
         "createdAt": "2026-09-15T17:43:52.887Z"
+      },
+      {
+        "id": "16f3081d-d523-4def-8aad-25b7436b3ee2",
+        "actorId": "f1b0ce8a-fee3-48e6-a87b-0d5213281d5a",
+        "action": "USER_LOGIN",
+        "entityType": "User",
+        "entityId": "f1b0ce8a-fee3-48e6-a87b-0d5213281d5a",
+        "metadata": null,
+        "createdAt": "2026-09-16T03:18:07.353Z"
       }
     ]
   }
