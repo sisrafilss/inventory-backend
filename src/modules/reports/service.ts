@@ -1454,9 +1454,10 @@ export class ReportsService {
 
     for (const sale of sales) {
       const dateStr = sale.createdAt.toISOString().split("T")[0];
-      const discountRatio =
-        sale.totalAmount > 0 ? (sale.discount || 0) / sale.totalAmount : 0;
-      totalDiscount += sale.discount || 0;
+      const saleTot = Number(sale.totalAmount || 0);
+      const saleDisc = Number(sale.discount || 0);
+      const discountRatio = saleTot > 0 ? saleDisc / saleTot : 0;
+      totalDiscount += saleDisc;
 
       for (const item of sale.items) {
         const qty = Number(item.quantity);
@@ -1654,8 +1655,10 @@ export class ReportsService {
       let discount = 0;
 
       for (const sale of salesList) {
-        discount += sale.discount || 0;
-        const discountRatio = sale.totalAmount > 0 ? (sale.discount || 0) / sale.totalAmount : 0;
+        const saleTot = Number(sale.totalAmount || 0);
+        const saleDisc = Number(sale.discount || 0);
+        discount += saleDisc;
+        const discountRatio = saleTot > 0 ? saleDisc / saleTot : 0;
 
         for (const item of sale.items) {
           const qty = Number(item.quantity);
