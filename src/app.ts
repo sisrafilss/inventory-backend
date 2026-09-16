@@ -22,6 +22,7 @@ import purchasesRouter from "./modules/purchases/routes.js";
 import expensesRouter from "./modules/expenses/routes.js";
 import paymentsRouter from "./modules/payments/routes.js";
 import settingsRouter from "./modules/settings/routes.js";
+import returnsRouter from "./modules/returns/routes.js";
 
 export const app = express();
 
@@ -89,6 +90,7 @@ app.use("/api/purchases", purchasesRouter);
 app.use("/api/expenses", expensesRouter);
 app.use("/api/payments", paymentsRouter);
 app.use("/api/settings", settingsRouter);
+app.use("/api/returns", returnsRouter);
 
 // 404 handler
 app.use("*", (req, res, next) => {

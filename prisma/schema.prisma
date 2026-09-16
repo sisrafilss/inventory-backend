@@ -31,6 +31,8 @@ enum StockMovementType {
   DAMAGE
   LOSS
   RETURN
+  SALES_RETURN
+  PURCHASE_RETURN
   CORRECTION
   OPENING_STOCK
   SALE_DEDUCTION
@@ -59,6 +61,8 @@ model User {
   purchases      Purchase[]      @relation("CreatedPurchases")
   expenses       Expense[]       @relation("CreatedExpenses")
   payments       PartyPayment[]  @relation("CreatedPayments")
+  createdSalesReturns    SalesReturn[]    @relation("CreatedSalesReturns")
+  createdPurchaseReturns PurchaseReturn[] @relation("CreatedPurchaseReturns")
 
   @@index([email])
   @@index([role])
@@ -95,6 +99,8 @@ model Warehouse {
   sales          Sale[]
   stockMovements StockMovement[]
   assignedUsers  User[]           @relation("UserWarehouse")
+  salesReturns   SalesReturn[]
+  purchaseReturns PurchaseReturn[]
 
   @@index([isActive])
 }
@@ -151,6 +157,8 @@ model Product {
   purchaseItems   PurchaseItem[]
   stockMovements  StockMovement[]
   warehouseStocks WarehouseStock[]
+  salesReturnItems    SalesReturnItem[]
+  purchaseReturnItems PurchaseReturnItem[]
 
   @@index([sku])
   @@index([barcode])
@@ -175,6 +183,7 @@ model Supplier {
 
   purchases Purchase[]
   payments  PartyPayment[]
+  purchaseReturns PurchaseReturn[]
 
   @@index([code])
   @@index([name])
@@ -200,6 +209,7 @@ model Customer {
   sales    Sale[]
   payments PartyPayment[]
   srDues   CustomerSrDue[]
+  salesReturns SalesReturn[]
 
   @@index([code])
   @@index([name])
@@ -243,6 +253,7 @@ model Purchase {
   updatedAt     DateTime  @updatedAt
 
   items PurchaseItem[]
+  returns PurchaseReturn[]
 
   @@index([invoiceNumber])
   @@index([supplierId])
@@ -297,6 +308,7 @@ model Sale {
   updatedAt         DateTime   @updatedAt
 
   items SaleItem[]
+  returns SalesReturn[]
 
   @@index([status])
   @@index([createdById])
@@ -408,4 +420,88 @@ model AuditLog {
   @@index([actorId])
   @@index([createdAt])
   @@index([entityType, entityId])
+}
+
+model SalesReturn {
+  id           String      @id @default(uuid())
+  returnNumber String      @unique
+  saleId       String?
+  sale         Sale?       @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  customerId   String?
+  customer     Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  warehouseId  String?
+  warehouse    Warehouse?  @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  totalAmount  Decimal     @default(0.00) @db.Decimal(12, 2)
+  refundAmount Decimal     @default(0.00) @db.Decimal(12, 2)
+  refundType   String      @default("CASH") // CASH, CREDIT_ADJUSTMENT
+  reason       String?
+  createdById  String
+  createdBy    User        @relation("CreatedSalesReturns", fields: [createdById], references: [id])
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+
+  items SalesReturnItem[]
+
+  @@index([returnNumber])
+  @@index([saleId])
+  @@index([customerId])
+  @@index([warehouseId])
+  @@index([createdById])
+  @@index([createdAt])
+}
+
+model SalesReturnItem {
+  id            String      @id @default(uuid())
+  salesReturnId String
+  salesReturn   SalesReturn @relation(fields: [salesReturnId], references: [id], onDelete: Cascade)
+  productId     String
+  product       Product     @relation(fields: [productId], references: [id])
+  quantity      Decimal     @db.Decimal(12, 3)
+  unitPrice     Decimal     @db.Decimal(12, 2)
+  lineTotal     Decimal     @db.Decimal(12, 2)
+
+  @@index([salesReturnId])
+  @@index([productId])
+}
+
+model PurchaseReturn {
+  id           String         @id @default(uuid())
+  returnNumber String         @unique
+  purchaseId   String?
+  purchase     Purchase?      @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+  supplierId   String?
+  supplier     Supplier?      @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  warehouseId  String?
+  warehouse    Warehouse?     @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  totalAmount  Decimal        @default(0.00) @db.Decimal(12, 2)
+  refundAmount Decimal        @default(0.00) @db.Decimal(12, 2)
+  refundType   String         @default("CASH") // CASH, CREDIT_ADJUSTMENT
+  reason       String?
+  createdById  String
+  createdBy    User           @relation("CreatedPurchaseReturns", fields: [createdById], references: [id])
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  items PurchaseReturnItem[]
+
+  @@index([returnNumber])
+  @@index([purchaseId])
+  @@index([supplierId])
+  @@index([warehouseId])
+  @@index([createdById])
+  @@index([createdAt])
+}
+
+model PurchaseReturnItem {
+  id               String         @id @default(uuid())
+  purchaseReturnId String
+  purchaseReturn   PurchaseReturn @relation(fields: [purchaseReturnId], references: [id], onDelete: Cascade)
+  productId        String
+  product          Product        @relation(fields: [productId], references: [id])
+  quantity         Decimal        @db.Decimal(12, 3)
+  unitPrice        Decimal        @db.Decimal(12, 2)
+  lineTotal        Decimal        @db.Decimal(12, 2)
+
+  @@index([purchaseReturnId])
+  @@index([productId])
 }
