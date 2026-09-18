@@ -316,7 +316,7 @@ export class ReportsController {
 
   static async getStockAging(req: Request, res: Response, next: NextFunction) {
     try {
-      const report = await ReportsService.getStockAging();
+      const report = await ReportsService.getStockAging(req.query as any);
       return sendSuccess(res, report);
     } catch (error) {
       next(error);

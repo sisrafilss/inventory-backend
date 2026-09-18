@@ -2189,7 +2189,14 @@ export class ReportsService {
   }
 
   // Stock Aging Report
-  static async getStockAging() {
+  static async getStockAging(query?: {
+    asOfDate?: string;
+    bracket?: string;
+    minDays?: string | number;
+    maxDays?: string | number;
+    fromDate?: string;
+    toDate?: string;
+  }) {
     const products = await prisma.product.findMany({
       where: { isActive: true },
       include: {
@@ -2203,13 +2210,19 @@ export class ReportsService {
       },
     });
 
-    const now = new Date();
+    const now =
+      query?.asOfDate && !isNaN(new Date(query.asOfDate).getTime())
+        ? new Date(query.asOfDate)
+        : new Date();
 
-    const items = products.map((p) => {
+    let items = products.map((p) => {
       const lastSaleDate = p.saleItems[0]?.sale?.createdAt || p.createdAt;
-      const ageDays = Math.floor(
-        (now.getTime() - new Date(lastSaleDate).getTime()) /
-          (1000 * 60 * 60 * 24),
+      const ageDays = Math.max(
+        0,
+        Math.floor(
+          (now.getTime() - new Date(lastSaleDate).getTime()) /
+            (1000 * 60 * 60 * 24),
+        ),
       );
 
       let ageBracket:
@@ -2258,6 +2271,29 @@ export class ReportsService {
         .filter((i) => i.ageBracket === "90+ Days (Dead Stock)")
         .reduce((acc, i) => acc + i.totalValuation, 0),
     };
+
+    if (query?.bracket) {
+      if (query.bracket === "0-30")
+        items = items.filter((i) => i.ageBracket === "0-30 Days");
+      else if (query.bracket === "31-60")
+        items = items.filter((i) => i.ageBracket === "31-60 Days");
+      else if (query.bracket === "61-90")
+        items = items.filter((i) => i.ageBracket === "61-90 Days");
+      else if (query.bracket === "90+")
+        items = items.filter((i) => i.ageBracket === "90+ Days (Dead Stock)");
+    }
+    if (query?.minDays !== undefined && query?.minDays !== "") {
+      items = items.filter((i) => i.ageDays >= Number(query.minDays));
+    }
+    if (query?.maxDays !== undefined && query?.maxDays !== "") {
+      items = items.filter((i) => i.ageDays <= Number(query.maxDays));
+    }
+    if (query?.fromDate) {
+      items = items.filter((i) => i.lastSaleDate >= String(query.fromDate));
+    }
+    if (query?.toDate) {
+      items = items.filter((i) => i.lastSaleDate <= String(query.toDate));
+    }
 
     return {
       summary: {
