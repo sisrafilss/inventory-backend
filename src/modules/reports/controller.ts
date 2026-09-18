@@ -244,11 +244,7 @@ export class ReportsController {
     }
   }
 
-  static async getBIAnalytics(
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ) {
+  static async getBIAnalytics(req: Request, res: Response, next: NextFunction) {
     try {
       const report = await ReportsService.getBIAnalytics({
         startDate: req.query.startDate as string,
@@ -262,7 +258,11 @@ export class ReportsController {
     }
   }
 
-  static async getMoMComparison(req: Request, res: Response, next: NextFunction) {
+  static async getMoMComparison(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
     try {
       const report = await ReportsService.getMoMComparison();
       return sendSuccess(res, report);
@@ -271,7 +271,11 @@ export class ReportsController {
     }
   }
 
-  static async getProductVelocity(req: Request, res: Response, next: NextFunction) {
+  static async getProductVelocity(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
     try {
       const report = await ReportsService.getProductVelocity();
       return sendSuccess(res, report);
@@ -280,7 +284,11 @@ export class ReportsController {
     }
   }
 
-  static async getCustomerLedger(req: Request, res: Response, next: NextFunction) {
+  static async getCustomerLedger(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
     try {
       const report = await ReportsService.getCustomerLedger({
         customerId: req.params.customerId || (req.query.customerId as string),
@@ -293,7 +301,11 @@ export class ReportsController {
     }
   }
 
-  static async getUserPerformance(req: Request, res: Response, next: NextFunction) {
+  static async getUserPerformance(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
     try {
       const report = await ReportsService.getUserPerformance({
         startDate: req.query.startDate as string,
@@ -305,7 +317,11 @@ export class ReportsController {
     }
   }
 
-  static async getReorderAlerts(req: Request, res: Response, next: NextFunction) {
+  static async getReorderAlerts(
+    req: Request,
+    res: Response,
+    next: NextFunction,
+  ) {
     try {
       const report = await ReportsService.getReorderAlerts();
       return sendSuccess(res, report);

@@ -121,7 +121,7 @@ export class ReportsService {
         company: p.company?.name || "General",
         category: p.category?.name || "General",
         unit: p.unit,
-        currentQuantity: qty,
+        currentQuantity: Number(Number(qty).toFixed(2)),
         reorderLevel,
         costPrice: cost,
         sellingPrice: selling,
@@ -1875,17 +1875,18 @@ export class ReportsService {
 
     const items = products.map((p) => {
       const sales = salesMap.get(p.id) || { qty: 0, revenue: 0 };
+      const roundedUnitsSold = Number(sales.qty.toFixed(2));
       let categoryType:
         | "FAST_MOVING"
         | "MODERATE"
         | "SLOW_MOVING"
         | "DEAD_STOCK" = "DEAD_STOCK";
 
-      if (sales.qty >= 40) {
+      if (roundedUnitsSold >= 40) {
         categoryType = "FAST_MOVING";
-      } else if (sales.qty >= 10) {
+      } else if (roundedUnitsSold >= 10) {
         categoryType = "MODERATE";
-      } else if (sales.qty > 0) {
+      } else if (roundedUnitsSold > 0) {
         categoryType = "SLOW_MOVING";
       }
 
@@ -1896,11 +1897,11 @@ export class ReportsService {
         barcode: p.barcode || "—",
         category: p.category?.name || "Uncategorized",
         company: p.company?.name || "—",
-        currentStock: p.quantity,
+        currentStock: Number(Number(p.quantity).toFixed(2)),
         unit: p.unit,
         sellingPrice: Number(p.sellingPrice),
         costPrice: Number(p.costPrice || 0),
-        unitsSold60Days: sales.qty,
+        unitsSold60Days: roundedUnitsSold,
         revenue60Days: Number(sales.revenue.toFixed(2)),
         velocityCategory: categoryType,
       };
@@ -2161,9 +2162,9 @@ export class ReportsService {
           company: p.company?.name || "—",
           category: p.category?.name || "Uncategorized",
           unit: p.unit,
-          currentStock: Number(p.quantity),
-          reorderLevel: Number(p.reorderLevel),
-          suggestedReorderQty: requiredQty,
+          currentStock: Number(Number(p.quantity).toFixed(2)),
+          reorderLevel: Number(Number(p.reorderLevel).toFixed(2)),
+          suggestedReorderQty: Number(Number(requiredQty).toFixed(2)),
           costPrice: Number(p.costPrice || 0),
           totalEstimatedCost: Number(totalEstimatedCost.toFixed(2)),
           urgency: Number(p.quantity) <= 0 ? "CRITICAL" : "WARNING",
@@ -2252,7 +2253,7 @@ export class ReportsService {
         company: p.company?.name || "—",
         category: p.category?.name || "Uncategorized",
         unit: p.unit,
-        currentStock: Number(p.quantity),
+        currentStock: Number(Number(p.quantity).toFixed(2)),
         costPrice: Number(p.costPrice || 0),
         totalValuation: Number(totalValuation.toFixed(2)),
         lastSaleDate: new Date(lastSaleDate).toISOString().split("T")[0],
