@@ -96,6 +96,7 @@ export class ReportsService {
       orderBy: { name: "asc" },
       include: {
         category: { select: { id: true, name: true } },
+        company: { select: { id: true, name: true } },
       },
     });
 
@@ -116,14 +117,16 @@ export class ReportsService {
         id: p.id,
         name: p.name,
         sku: p.sku,
+        barcode: p.barcode || "—",
+        company: p.company?.name || "General",
         category: p.category?.name || "General",
         unit: p.unit,
         currentQuantity: qty,
         reorderLevel,
         costPrice: cost,
         sellingPrice: selling,
-        totalCostValue: (qty * cost).toFixed(2),
-        totalRetailValue: (qty * selling).toFixed(2),
+        totalCostValue: Number((qty * cost).toFixed(2)),
+        totalRetailValue: Number((qty * selling).toFixed(2)),
         stockStatus,
         isActive: p.isActive,
       };
