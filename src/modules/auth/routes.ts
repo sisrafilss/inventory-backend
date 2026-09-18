@@ -1,7 +1,11 @@
 import { Router } from "express";
 import { AuthController } from "./controller.js";
 import { validateRequest } from "../../middlewares/validateRequest.js";
-import { loginSchema, changePasswordSchema } from "./schema.js";
+import {
+  loginSchema,
+  changePasswordSchema,
+  updateProfileSchema,
+} from "./schema.js";
 import { requireAuth } from "../../middlewares/auth.js";
 
 const router = Router();
@@ -13,6 +17,13 @@ router.post(
   requireAuth,
   validateRequest(changePasswordSchema),
   AuthController.changePassword,
+);
+
+router.patch(
+  "/profile",
+  requireAuth,
+  validateRequest(updateProfileSchema),
+  AuthController.updateProfile,
 );
 
 router.get("/me", requireAuth, AuthController.getMe);

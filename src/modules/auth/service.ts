@@ -3,12 +3,24 @@ import { hashPassword, comparePassword } from "../../utils/password.js";
 import { signToken } from "../../utils/jwt.js";
 import { AppError } from "../../errors/AppError.js";
 import { logAudit } from "../../utils/audit.js";
-import { UserStatus } from "@prisma/client";
+import { UserStatus, Role } from "@prisma/client";
 
 export class AuthService {
-  static async login(data: { email: string; password: string }) {
-    const user = await prisma.user.findUnique({
-      where: { email: data.email.toLowerCase().trim() },
+  static async login(data: { username?: string; email?: string; password: string }) {
+    const identifier = (data.username || data.email || "").toLowerCase().trim();
+
+    if (!identifier) {
+      throw new AppError("Username is required.", 400, "VALIDATION_ERROR");
+    }
+
+    // Match case-insensitively by username or email
+    const user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: { equals: identifier, mode: "insensitive" } },
+          { email: { equals: identifier, mode: "insensitive" } },
+        ],
+      },
       include: {
         warehouse: {
           select: { id: true, name: true, code: true },
@@ -18,7 +30,7 @@ export class AuthService {
 
     if (!user) {
       throw new AppError(
-        "Invalid email or password.",
+        "Invalid username or password.",
         401,
         "INVALID_CREDENTIALS",
       );
@@ -27,9 +39,18 @@ export class AuthService {
     const isMatch = await comparePassword(data.password, user.passwordHash);
     if (!isMatch) {
       throw new AppError(
-        "Invalid email or password.",
+        "Invalid username or password.",
         401,
         "INVALID_CREDENTIALS",
+      );
+    }
+
+    // SR users are not authorized to log into the web system
+    if (user.role === Role.SR) {
+      throw new AppError(
+        "Sales Representative (SR) accounts are not authorized to log in.",
+        403,
+        "SR_LOGIN_FORBIDDEN",
       );
     }
 
@@ -66,6 +87,7 @@ export class AuthService {
     const token = signToken({
       userId: user.id,
       role: user.role,
+      username: user.username || undefined,
       email: user.email,
     });
 
@@ -127,11 +149,106 @@ export class AuthService {
     return { message: "Password changed successfully." };
   }
 
+  static async updateProfile(
+    userId: string,
+    data: {
+      name?: string;
+      username?: string;
+      email?: string | null;
+      phone?: string | null;
+      address?: string | null;
+    },
+  ) {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+    });
+
+    if (!user) {
+      throw new AppError("User not found.", 404, "USER_NOT_FOUND");
+    }
+
+    // If username is provided, verify uniqueness
+    if (data.username && data.username.trim()) {
+      const trimmedUsername = data.username.trim();
+      const existing = await prisma.user.findFirst({
+        where: {
+          username: { equals: trimmedUsername, mode: "insensitive" },
+          id: { not: userId },
+        },
+      });
+
+      if (existing) {
+        throw new AppError("This username is already taken.", 409, "USERNAME_EXISTS");
+      }
+    }
+
+    // If email is provided, verify uniqueness
+    if (data.email && data.email.trim()) {
+      const trimmedEmail = data.email.toLowerCase().trim();
+      const existing = await prisma.user.findFirst({
+        where: {
+          email: { equals: trimmedEmail, mode: "insensitive" },
+          id: { not: userId },
+        },
+      });
+
+      if (existing) {
+        throw new AppError("An account with this email already exists.", 409, "EMAIL_EXISTS");
+      }
+    }
+
+    const updated = await prisma.user.update({
+      where: { id: userId },
+      data: {
+        ...(data.name ? { name: data.name.trim() } : {}),
+        ...(data.username ? { username: data.username.trim() } : {}),
+        ...(data.email !== undefined
+          ? { email: data.email?.trim() ? data.email.toLowerCase().trim() : null }
+          : {}),
+        ...(data.phone !== undefined ? { phone: data.phone?.trim() || null } : {}),
+        ...(data.address !== undefined ? { address: data.address?.trim() || null } : {}),
+      },
+      select: {
+        id: true,
+        username: true,
+        name: true,
+        email: true,
+        phone: true,
+        address: true,
+        role: true,
+        status: true,
+        warehouseId: true,
+        warehouse: {
+          select: { id: true, name: true, code: true },
+        },
+        mustChangePassword: true,
+        lastLoginAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    await logAudit({
+      actorId: userId,
+      action: "USER_PROFILE_UPDATED",
+      entityType: "User",
+      entityId: userId,
+      metadata: {
+        username: updated.username,
+        email: updated.email,
+        name: updated.name,
+      },
+    });
+
+    return updated;
+  }
+
   static async getMe(userId: string) {
     const user = await prisma.user.findUnique({
       where: { id: userId },
       select: {
         id: true,
+        username: true,
         name: true,
         email: true,
         phone: true,

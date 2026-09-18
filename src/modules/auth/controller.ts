@@ -21,6 +21,15 @@ export class AuthController {
     }
   }
 
+  static async updateProfile(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await AuthService.updateProfile(req.user!.id, req.body);
+      return sendSuccess(res, result, "Profile updated successfully.");
+    } catch (error) {
+      next(error);
+    }
+  }
+
   static async getMe(req: Request, res: Response, next: NextFunction) {
     try {
       const user = await AuthService.getMe(req.user!.id);

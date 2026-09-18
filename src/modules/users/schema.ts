@@ -3,23 +3,61 @@ import { Role, UserStatus } from "@prisma/client";
 
 export const createUserSchema = z.object({
   body: z.object({
+    username: z
+      .string()
+      .min(3, "Username must be at least 3 characters")
+      .max(50, "Username cannot exceed 50 characters")
+      .regex(
+        /^[a-zA-Z0-9_.-]+$/,
+        "Username can only contain letters, numbers, underscores, dashes, and periods"
+      ),
     name: z.string().min(2, "Name must be at least 2 characters"),
-    email: z.string().email("Invalid email address"),
+    email: z
+      .string()
+      .email("Invalid email address")
+      .optional()
+      .nullable()
+      .or(z.literal("")),
     role: z.enum([Role.ADMIN, Role.MANAGER, Role.SR]),
     password: z.string().min(6, "Password must be at least 6 characters"),
-    phone: z.string().optional(),
-    address: z.string().optional(),
-    warehouseId: z.string().uuid("Invalid warehouse ID").optional().nullable().or(z.literal("")),
+    phone: z.string().optional().nullable().or(z.literal("")),
+    address: z.string().optional().nullable().or(z.literal("")),
+    warehouseId: z
+      .string()
+      .uuid("Invalid warehouse ID")
+      .optional()
+      .nullable()
+      .or(z.literal("")),
   }),
 });
 
 export const updateUserSchema = z.object({
   body: z.object({
+    username: z
+      .string()
+      .min(3, "Username must be at least 3 characters")
+      .max(50, "Username cannot exceed 50 characters")
+      .regex(
+        /^[a-zA-Z0-9_.-]+$/,
+        "Username can only contain letters, numbers, underscores, dashes, and periods"
+      )
+      .optional(),
     name: z.string().min(2).optional(),
-    phone: z.string().optional(),
-    address: z.string().optional(),
+    email: z
+      .string()
+      .email("Invalid email address")
+      .optional()
+      .nullable()
+      .or(z.literal("")),
+    phone: z.string().optional().nullable().or(z.literal("")),
+    address: z.string().optional().nullable().or(z.literal("")),
     role: z.enum([Role.ADMIN, Role.MANAGER, Role.SR]).optional(),
-    warehouseId: z.string().uuid("Invalid warehouse ID").optional().nullable().or(z.literal("")),
+    warehouseId: z
+      .string()
+      .uuid("Invalid warehouse ID")
+      .optional()
+      .nullable()
+      .or(z.literal("")),
   }),
 });
 

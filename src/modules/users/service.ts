@@ -29,6 +29,7 @@ export class UsersService {
     if (query.search && query.search.trim()) {
       const search = query.search.trim();
       where.OR = [
+        { username: { contains: search, mode: "insensitive" } },
         { name: { contains: search, mode: "insensitive" } },
         { email: { contains: search, mode: "insensitive" } },
         { phone: { contains: search, mode: "insensitive" } },
@@ -44,6 +45,7 @@ export class UsersService {
         orderBy: { createdAt: "desc" },
         select: {
           id: true,
+          username: true,
           name: true,
           email: true,
           phone: true,
@@ -78,6 +80,7 @@ export class UsersService {
       where: { id },
       select: {
         id: true,
+        username: true,
         name: true,
         email: true,
         phone: true,
@@ -105,8 +108,9 @@ export class UsersService {
   static async createUser(
     creator: { id: string; role: Role },
     data: {
+      username: string;
       name: string;
-      email: string;
+      email?: string | null;
       role: Role;
       password: string;
       phone?: string;
@@ -130,16 +134,32 @@ export class UsersService {
       );
     }
 
-    const existing = await prisma.user.findUnique({
-      where: { email: data.email.toLowerCase().trim() },
+    const trimmedUsername = data.username.trim();
+    const existingUsername = await prisma.user.findFirst({
+      where: { username: { equals: trimmedUsername, mode: "insensitive" } },
     });
 
-    if (existing) {
+    if (existingUsername) {
       throw new AppError(
-        "An account with this email already exists.",
+        "An account with this username already exists.",
         409,
-        "EMAIL_EXISTS",
+        "USERNAME_EXISTS",
       );
+    }
+
+    if (data.email && data.email.trim()) {
+      const trimmedEmail = data.email.toLowerCase().trim();
+      const existingEmail = await prisma.user.findFirst({
+        where: { email: { equals: trimmedEmail, mode: "insensitive" } },
+      });
+
+      if (existingEmail) {
+        throw new AppError(
+          "An account with this email already exists.",
+          409,
+          "EMAIL_EXISTS",
+        );
+      }
     }
 
     const passwordHash = await hashPassword(data.password);
@@ -147,10 +167,11 @@ export class UsersService {
 
     const user = await prisma.user.create({
       data: {
+        username: trimmedUsername,
         name: data.name.trim(),
-        email: data.email.toLowerCase().trim(),
-        phone: data.phone?.trim(),
-        address: data.address?.trim(),
+        email: data.email?.trim() ? data.email.toLowerCase().trim() : null,
+        phone: data.phone?.trim() || null,
+        address: data.address?.trim() || null,
         passwordHash,
         role: data.role,
         status: UserStatus.ACTIVE,
@@ -159,6 +180,7 @@ export class UsersService {
       },
       select: {
         id: true,
+        username: true,
         name: true,
         email: true,
         phone: true,
@@ -179,7 +201,13 @@ export class UsersService {
       action: "USER_CREATED",
       entityType: "User",
       entityId: user.id,
-      metadata: { role: user.role, email: user.email, name: user.name, warehouseId: user.warehouseId },
+      metadata: {
+        username: user.username,
+        role: user.role,
+        email: user.email,
+        name: user.name,
+        warehouseId: user.warehouseId,
+      },
     });
 
     return user;
@@ -188,21 +216,77 @@ export class UsersService {
   static async updateUser(
     actorId: string,
     id: string,
-    data: { name?: string; phone?: string; address?: string; role?: Role; warehouseId?: string | null },
+    data: {
+      username?: string;
+      name?: string;
+      email?: string | null;
+      phone?: string;
+      address?: string;
+      role?: Role;
+      warehouseId?: string | null;
+    },
   ) {
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) {
       throw new AppError("User not found.", 404, "USER_NOT_FOUND");
     }
 
-    if (data.role && data.role === Role.SUPER_ADMIN && user.role !== Role.SUPER_ADMIN) {
-      throw new AppError("Cannot promote user to Super Admin.", 403, "FORBIDDEN_ROLE_UPDATE");
+    if (
+      data.role &&
+      data.role === Role.SUPER_ADMIN &&
+      user.role !== Role.SUPER_ADMIN
+    ) {
+      throw new AppError(
+        "Cannot promote user to Super Admin.",
+        403,
+        "FORBIDDEN_ROLE_UPDATE",
+      );
+    }
+
+    if (data.username && data.username.trim()) {
+      const trimmedUsername = data.username.trim();
+      const existingUsername = await prisma.user.findFirst({
+        where: {
+          username: { equals: trimmedUsername, mode: "insensitive" },
+          id: { not: id },
+        },
+      });
+
+      if (existingUsername) {
+        throw new AppError(
+          "An account with this username already exists.",
+          409,
+          "USERNAME_EXISTS",
+        );
+      }
+    }
+
+    if (data.email && data.email.trim()) {
+      const trimmedEmail = data.email.toLowerCase().trim();
+      const existingEmail = await prisma.user.findFirst({
+        where: {
+          email: { equals: trimmedEmail, mode: "insensitive" },
+          id: { not: id },
+        },
+      });
+
+      if (existingEmail) {
+        throw new AppError(
+          "An account with this email already exists.",
+          409,
+          "EMAIL_EXISTS",
+        );
+      }
     }
 
     const updated = await prisma.user.update({
       where: { id },
       data: {
+        ...(data.username ? { username: data.username.trim() } : {}),
         ...(data.name ? { name: data.name.trim() } : {}),
+        ...(data.email !== undefined
+          ? { email: data.email?.trim() ? data.email.toLowerCase().trim() : null }
+          : {}),
         ...(data.phone !== undefined
           ? { phone: data.phone.trim() || null }
           : {}),
@@ -216,6 +300,7 @@ export class UsersService {
       },
       select: {
         id: true,
+        username: true,
         name: true,
         email: true,
         phone: true,
@@ -273,6 +358,7 @@ export class UsersService {
       data: { status },
       select: {
         id: true,
+        username: true,
         name: true,
         email: true,
         role: true,
@@ -329,7 +415,7 @@ export class UsersService {
       action: "USER_PASSWORD_RESET_BY_ADMIN",
       entityType: "User",
       entityId: id,
-      metadata: { targetEmail: targetUser.email },
+      metadata: { targetUsername: targetUser.username, targetEmail: targetUser.email },
     });
 
     return {
@@ -346,6 +432,7 @@ export class UsersService {
       },
       select: {
         id: true,
+        username: true,
         name: true,
         email: true,
         phone: true,

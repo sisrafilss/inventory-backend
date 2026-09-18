@@ -12,29 +12,29 @@ describe("Inventory Management System — Acceptance Scenarios (Super Admin, Adm
   let testProductId: string;
 
   beforeAll(async () => {
-    // 1. Authenticate default Super Admin
+    // 1. Authenticate default Super Admin with username & password
     const loginRes = await request(app).post("/api/auth/login").send({
-      email: "admin@inventory.local",
-      password: "SuperAdminInitialPassword123!",
+      username: "superAdmin",
+      password: "superAdmin",
     });
     expect(loginRes.status).toBe(200);
     superAdminToken = loginRes.body.data.token;
 
     // 2. Super Admin creates an Admin
-    const adminEmail = `admin_${Date.now()}@inventory.test`;
+    const adminUsername = `admin_${Date.now()}`;
     const createAdminRes = await request(app)
       .post("/api/users")
       .set("Authorization", `Bearer ${superAdminToken}`)
       .send({
+        username: adminUsername,
         name: "Test Admin",
-        email: adminEmail,
         role: "ADMIN",
         password: "AdminPassword123!",
       });
     expect(createAdminRes.status).toBe(201);
 
     const adminLoginRes = await request(app).post("/api/auth/login").send({
-      email: adminEmail,
+      username: adminUsername,
       password: "AdminPassword123!",
     });
     expect(adminLoginRes.status).toBe(200);
@@ -92,7 +92,14 @@ describe("Inventory Management System — Acceptance Scenarios (Super Admin, Adm
         where: { name: { in: ["Alice Customer", "Overbuyer Customer"] } },
       });
       await prisma.user.deleteMany({
-        where: { email: { contains: "@inventory.test" } },
+        where: {
+          OR: [
+            { username: { startsWith: "admin_" } },
+            { username: { startsWith: "mgr_" } },
+            { username: { startsWith: "sr_" } },
+            { email: { contains: "@inventory.test" } },
+          ],
+        },
       });
     } catch (e) {
       console.error("Cleanup error in app.test.ts:", e);
@@ -101,7 +108,7 @@ describe("Inventory Management System — Acceptance Scenarios (Super Admin, Adm
   });
 
   describe("Scenario A: Role Creation Rules & Manager Account Setup", () => {
-    const managerEmail = `mgr_${Date.now()}@inventory.test`;
+    const managerUsername = `mgr_${Date.now()}`;
     const initialPassword = "InitialManagerPassword123!";
     const newPassword = "NewSecretManagerPassword123!";
 
@@ -110,8 +117,8 @@ describe("Inventory Management System — Acceptance Scenarios (Super Admin, Adm
         .post("/api/users")
         .set("Authorization", `Bearer ${superAdminToken}`)
         .send({
+          username: `invalid_${Date.now()}`,
           name: "Invalid Role User",
-          email: `invalid_${Date.now()}@test.com`,
           role: "SALES_OFFICER",
           password: "Password123!",
         });
@@ -125,8 +132,8 @@ describe("Inventory Management System — Acceptance Scenarios (Super Admin, Adm
         .post("/api/users")
         .set("Authorization", `Bearer ${adminToken}`)
         .send({
+          username: managerUsername,
           name: "Test Manager",
-          email: managerEmail,
           role: "MANAGER",
           password: initialPassword,
           warehouseId: wh?.id,
@@ -139,7 +146,7 @@ describe("Inventory Management System — Acceptance Scenarios (Super Admin, Adm
 
     it("should log in Manager and indicate mustChangePassword = true", async () => {
       const res = await request(app).post("/api/auth/login").send({
-        email: managerEmail,
+        username: managerUsername,
         password: initialPassword,
       });
 
@@ -171,7 +178,7 @@ describe("Inventory Management System — Acceptance Scenarios (Super Admin, Adm
 
     it("should allow Manager normal access after password change", async () => {
       const loginRes = await request(app).post("/api/auth/login").send({
-        email: managerEmail,
+        username: managerUsername,
         password: newPassword,
       });
 
@@ -273,6 +280,28 @@ describe("Inventory Management System — Acceptance Scenarios (Super Admin, Adm
 
       expect(res.status).toBe(403);
       expect(res.body.code).toBe("FORBIDDEN");
+    });
+
+    it("should prevent SR accounts from logging in", async () => {
+      const srUsername = `sr_${Date.now()}`;
+      const createSrRes = await request(app)
+        .post("/api/users")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          username: srUsername,
+          name: "Field Sales Rep",
+          role: "SR",
+          password: "SrPassword123!",
+        });
+      expect(createSrRes.status).toBe(201);
+
+      const srLoginRes = await request(app).post("/api/auth/login").send({
+        username: srUsername,
+        password: "SrPassword123!",
+      });
+
+      expect(srLoginRes.status).toBe(403);
+      expect(srLoginRes.body.code).toBe("SR_LOGIN_FORBIDDEN");
     });
 
     it("should prevent Manager from accessing audit logs", async () => {

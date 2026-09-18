@@ -42,8 +42,9 @@ enum StockMovementType {
 
 model User {
   id                 String     @id @default(uuid())
+  username           String?    @unique
   name               String
-  email              String     @unique
+  email              String?    @unique
   phone              String?
   address            String?
   passwordHash       String
@@ -56,16 +57,17 @@ model User {
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
 
-  createdSales   Sale[]          @relation("CreatedSales")
-  stockMovements StockMovement[]
-  auditLogs      AuditLog[]
-  purchases      Purchase[]      @relation("CreatedPurchases")
-  expenses       Expense[]       @relation("CreatedExpenses")
-  payments       PartyPayment[]  @relation("CreatedPayments")
+  createdSales           Sale[]           @relation("CreatedSales")
+  stockMovements         StockMovement[]
+  auditLogs              AuditLog[]
+  purchases              Purchase[]       @relation("CreatedPurchases")
+  expenses               Expense[]        @relation("CreatedExpenses")
+  payments               PartyPayment[]   @relation("CreatedPayments")
   createdSalesReturns    SalesReturn[]    @relation("CreatedSalesReturns")
   createdPurchaseReturns PurchaseReturn[] @relation("CreatedPurchaseReturns")
   customerSrDues         CustomerSrDue[]  @relation("CustomerSrDues")
 
+  @@index([username])
   @@index([email])
   @@index([role])
   @@index([status])
@@ -95,13 +97,13 @@ model Warehouse {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  stocks         WarehouseStock[]
-  purchaseItems  PurchaseItem[]
-  saleItems      SaleItem[]
-  sales          Sale[]
-  stockMovements StockMovement[]
-  assignedUsers  User[]           @relation("UserWarehouse")
-  salesReturns   SalesReturn[]
+  stocks          WarehouseStock[]
+  purchaseItems   PurchaseItem[]
+  saleItems       SaleItem[]
+  sales           Sale[]
+  stockMovements  StockMovement[]
+  assignedUsers   User[]           @relation("UserWarehouse")
+  salesReturns    SalesReturn[]
   purchaseReturns PurchaseReturn[]
 
   @@index([isActive])
@@ -155,10 +157,10 @@ model Product {
   createdAt         DateTime  @default(now())
   updatedAt         DateTime  @updatedAt
 
-  saleItems       SaleItem[]
-  purchaseItems   PurchaseItem[]
-  stockMovements  StockMovement[]
-  warehouseStocks WarehouseStock[]
+  saleItems           SaleItem[]
+  purchaseItems       PurchaseItem[]
+  stockMovements      StockMovement[]
+  warehouseStocks     WarehouseStock[]
   salesReturnItems    SalesReturnItem[]
   purchaseReturnItems PurchaseReturnItem[]
 
@@ -183,8 +185,8 @@ model Supplier {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  purchases Purchase[]
-  payments  PartyPayment[]
+  purchases       Purchase[]
+  payments        PartyPayment[]
   purchaseReturns PurchaseReturn[]
 
   @@index([code])
@@ -208,9 +210,9 @@ model Customer {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  sales    Sale[]
-  payments PartyPayment[]
-  srDues   CustomerSrDue[]
+  sales        Sale[]
+  payments     PartyPayment[]
+  srDues       CustomerSrDue[]
   salesReturns SalesReturn[]
 
   @@index([code])
@@ -257,7 +259,7 @@ model Purchase {
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @updatedAt
 
-  items PurchaseItem[]
+  items   PurchaseItem[]
   returns PurchaseReturn[]
 
   @@index([invoiceNumber])
@@ -312,7 +314,7 @@ model Sale {
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
 
-  items SaleItem[]
+  items   SaleItem[]
   returns SalesReturn[]
 
   @@index([status])
@@ -428,22 +430,22 @@ model AuditLog {
 }
 
 model SalesReturn {
-  id           String      @id @default(uuid())
-  returnNumber String      @unique
+  id           String     @id @default(uuid())
+  returnNumber String     @unique
   saleId       String?
-  sale         Sale?       @relation(fields: [saleId], references: [id], onDelete: SetNull)
+  sale         Sale?      @relation(fields: [saleId], references: [id], onDelete: SetNull)
   customerId   String?
-  customer     Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customer     Customer?  @relation(fields: [customerId], references: [id], onDelete: SetNull)
   warehouseId  String?
-  warehouse    Warehouse?  @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
-  totalAmount  Decimal     @default(0.00) @db.Decimal(12, 2)
-  refundAmount Decimal     @default(0.00) @db.Decimal(12, 2)
-  refundType   String      @default("CASH") // CASH, CREDIT_ADJUSTMENT
+  warehouse    Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  totalAmount  Decimal    @default(0.00) @db.Decimal(12, 2)
+  refundAmount Decimal    @default(0.00) @db.Decimal(12, 2)
+  refundType   String     @default("CASH") // CASH, CREDIT_ADJUSTMENT
   reason       String?
   createdById  String
-  createdBy    User        @relation("CreatedSalesReturns", fields: [createdById], references: [id])
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdBy    User       @relation("CreatedSalesReturns", fields: [createdById], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   items SalesReturnItem[]
 
@@ -470,22 +472,22 @@ model SalesReturnItem {
 }
 
 model PurchaseReturn {
-  id           String         @id @default(uuid())
-  returnNumber String         @unique
+  id           String     @id @default(uuid())
+  returnNumber String     @unique
   purchaseId   String?
-  purchase     Purchase?      @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
+  purchase     Purchase?  @relation(fields: [purchaseId], references: [id], onDelete: SetNull)
   supplierId   String?
-  supplier     Supplier?      @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  supplier     Supplier?  @relation(fields: [supplierId], references: [id], onDelete: SetNull)
   warehouseId  String?
-  warehouse    Warehouse?     @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
-  totalAmount  Decimal        @default(0.00) @db.Decimal(12, 2)
-  refundAmount Decimal        @default(0.00) @db.Decimal(12, 2)
-  refundType   String         @default("CASH") // CASH, CREDIT_ADJUSTMENT
+  warehouse    Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+  totalAmount  Decimal    @default(0.00) @db.Decimal(12, 2)
+  refundAmount Decimal    @default(0.00) @db.Decimal(12, 2)
+  refundType   String     @default("CASH") // CASH, CREDIT_ADJUSTMENT
   reason       String?
   createdById  String
-  createdBy    User           @relation("CreatedPurchaseReturns", fields: [createdById], references: [id])
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  createdBy    User       @relation("CreatedPurchaseReturns", fields: [createdById], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
 
   items PurchaseReturnItem[]
 

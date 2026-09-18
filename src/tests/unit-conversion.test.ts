@@ -13,8 +13,8 @@ describe("Fractional & Packaging Unit Stock Management", () => {
   beforeAll(async () => {
     // Authenticate default Super Admin
     const loginRes = await request(app).post("/api/auth/login").send({
-      email: "admin@inventory.local",
-      password: "SuperAdminInitialPassword123!",
+      username: "superAdmin",
+      password: "superAdmin",
     });
     expect(loginRes.status).toBe(200);
     adminToken = loginRes.body.data.token;
