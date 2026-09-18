@@ -56,6 +56,15 @@ export class UsersService {
           warehouse: {
             select: { id: true, name: true, code: true },
           },
+          assignedWarehouses: {
+            select: {
+              id: true,
+              warehouseId: true,
+              warehouse: {
+                select: { id: true, name: true, code: true },
+              },
+            },
+          },
           mustChangePassword: true,
           lastLoginAt: true,
           createdAt: true,
@@ -91,6 +100,15 @@ export class UsersService {
         warehouse: {
           select: { id: true, name: true, code: true },
         },
+        assignedWarehouses: {
+          select: {
+            id: true,
+            warehouseId: true,
+            warehouse: {
+              select: { id: true, name: true, code: true },
+            },
+          },
+        },
         mustChangePassword: true,
         lastLoginAt: true,
         createdAt: true,
@@ -108,14 +126,15 @@ export class UsersService {
   static async createUser(
     creator: { id: string; role: Role },
     data: {
-      username: string;
+      username?: string | null;
       name: string;
       email?: string | null;
       role: Role;
-      password: string;
-      phone?: string;
-      address?: string;
+      password?: string | null;
+      phone?: string | null;
+      address?: string | null;
       warehouseId?: string | null;
+      warehouseIds?: string[] | null;
     },
   ) {
     if (data.role === Role.SUPER_ADMIN) {
@@ -134,7 +153,21 @@ export class UsersService {
       );
     }
 
-    const trimmedUsername = data.username.trim();
+    let trimmedUsername = (data.username || "").trim();
+    if (!trimmedUsername && data.role === Role.SR) {
+      const cleanName =
+        data.name
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "")
+          .slice(0, 15) || "sr";
+      const randomSuffix = Math.random().toString(36).substring(2, 7);
+      trimmedUsername = `sr_${cleanName}_${randomSuffix}`;
+    }
+
+    if (!trimmedUsername) {
+      throw new AppError("Username is required.", 422, "USERNAME_REQUIRED");
+    }
+
     const existingUsername = await prisma.user.findFirst({
       where: { username: { equals: trimmedUsername, mode: "insensitive" } },
     });
@@ -162,8 +195,38 @@ export class UsersService {
       }
     }
 
-    const passwordHash = await hashPassword(data.password);
+    let passwordHash: string | null = null;
+    if (data.role === Role.SR) {
+      passwordHash =
+        data.password && data.password.trim()
+          ? await hashPassword(data.password)
+          : null;
+    } else {
+      if (!data.password || data.password.length < 6) {
+        throw new AppError(
+          "Password must be at least 6 characters.",
+          422,
+          "PASSWORD_REQUIRED",
+        );
+      }
+      passwordHash = await hashPassword(data.password);
+    }
+
     const isManager = data.role === Role.MANAGER;
+
+    // Consolidate warehouse assignment
+    const assignedWarehouseIds: string[] = [];
+    if (Array.isArray(data.warehouseIds)) {
+      data.warehouseIds.forEach((wId) => {
+        if (wId && !assignedWarehouseIds.includes(wId)) {
+          assignedWarehouseIds.push(wId);
+        }
+      });
+    } else if (data.warehouseId) {
+      assignedWarehouseIds.push(data.warehouseId);
+    }
+    const primaryWarehouseId =
+      assignedWarehouseIds[0] || data.warehouseId || null;
 
     const user = await prisma.user.create({
       data: {
@@ -175,8 +238,17 @@ export class UsersService {
         passwordHash,
         role: data.role,
         status: UserStatus.ACTIVE,
-        warehouseId: data.warehouseId || null,
+        warehouseId: primaryWarehouseId,
         mustChangePassword: isManager, // Managers must change password on first login
+        ...(assignedWarehouseIds.length > 0
+          ? {
+              assignedWarehouses: {
+                create: assignedWarehouseIds.map((wId) => ({
+                  warehouseId: wId,
+                })),
+              },
+            }
+          : {}),
       },
       select: {
         id: true,
@@ -190,6 +262,13 @@ export class UsersService {
         warehouseId: true,
         warehouse: {
           select: { id: true, name: true, code: true },
+        },
+        assignedWarehouses: {
+          select: {
+            id: true,
+            warehouseId: true,
+            warehouse: { select: { id: true, name: true, code: true } },
+          },
         },
         mustChangePassword: true,
         createdAt: true,
@@ -207,6 +286,7 @@ export class UsersService {
         email: user.email,
         name: user.name,
         warehouseId: user.warehouseId,
+        assignedWarehouseIds,
       },
     });
 
@@ -224,6 +304,7 @@ export class UsersService {
       address?: string;
       role?: Role;
       warehouseId?: string | null;
+      warehouseIds?: string[] | null;
     },
   ) {
     const user = await prisma.user.findUnique({ where: { id } });
@@ -279,13 +360,48 @@ export class UsersService {
       }
     }
 
+    // Sync UserWarehouse if warehouseIds is explicitly provided
+    if (data.warehouseIds !== undefined) {
+      await prisma.userWarehouse.deleteMany({
+        where: { userId: id },
+      });
+      if (Array.isArray(data.warehouseIds) && data.warehouseIds.length > 0) {
+        const uniqueIds = Array.from(
+          new Set(data.warehouseIds.filter(Boolean)),
+        ) as string[];
+        if (uniqueIds.length > 0) {
+          await prisma.userWarehouse.createMany({
+            data: uniqueIds.map((wId) => ({
+              userId: id,
+              warehouseId: wId,
+            })),
+            skipDuplicates: true,
+          });
+        }
+      }
+    }
+
+    let nextWarehouseId: string | null | undefined = undefined;
+    if (data.warehouseIds !== undefined) {
+      nextWarehouseId =
+        data.warehouseIds && data.warehouseIds.length > 0
+          ? data.warehouseIds[0]
+          : null;
+    } else if (data.warehouseId !== undefined) {
+      nextWarehouseId = data.warehouseId || null;
+    }
+
     const updated = await prisma.user.update({
       where: { id },
       data: {
         ...(data.username ? { username: data.username.trim() } : {}),
         ...(data.name ? { name: data.name.trim() } : {}),
         ...(data.email !== undefined
-          ? { email: data.email?.trim() ? data.email.toLowerCase().trim() : null }
+          ? {
+              email: data.email?.trim()
+                ? data.email.toLowerCase().trim()
+                : null,
+            }
           : {}),
         ...(data.phone !== undefined
           ? { phone: data.phone.trim() || null }
@@ -294,8 +410,8 @@ export class UsersService {
           ? { address: data.address.trim() || null }
           : {}),
         ...(data.role ? { role: data.role } : {}),
-        ...(data.warehouseId !== undefined
-          ? { warehouseId: data.warehouseId || null }
+        ...(nextWarehouseId !== undefined
+          ? { warehouseId: nextWarehouseId }
           : {}),
       },
       select: {
@@ -310,6 +426,13 @@ export class UsersService {
         warehouseId: true,
         warehouse: {
           select: { id: true, name: true, code: true },
+        },
+        assignedWarehouses: {
+          select: {
+            id: true,
+            warehouseId: true,
+            warehouse: { select: { id: true, name: true, code: true } },
+          },
         },
         mustChangePassword: true,
         updatedAt: true,
@@ -415,7 +538,10 @@ export class UsersService {
       action: "USER_PASSWORD_RESET_BY_ADMIN",
       entityType: "User",
       entityId: id,
-      metadata: { targetUsername: targetUser.username, targetEmail: targetUser.email },
+      metadata: {
+        targetUsername: targetUser.username,
+        targetEmail: targetUser.email,
+      },
     });
 
     return {
@@ -438,6 +564,19 @@ export class UsersService {
         phone: true,
         address: true,
         status: true,
+        warehouseId: true,
+        warehouse: {
+          select: { id: true, name: true, code: true },
+        },
+        assignedWarehouses: {
+          select: {
+            id: true,
+            warehouseId: true,
+            warehouse: {
+              select: { id: true, name: true, code: true },
+            },
+          },
+        },
       },
       orderBy: { name: "asc" },
     });

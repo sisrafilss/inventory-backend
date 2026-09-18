@@ -31,7 +31,7 @@ export const updateProfileSchema = z.object({
       .max(50, "Username cannot exceed 50 characters")
       .regex(
         /^[a-zA-Z0-9_.-]+$/,
-        "Username can only contain letters, numbers, underscores, dashes, and periods"
+        "Username can only contain letters, numbers, underscores, dashes, and periods",
       )
       .optional(),
     email: z

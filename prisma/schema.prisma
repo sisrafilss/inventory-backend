@@ -47,7 +47,7 @@ model User {
   email              String?    @unique
   phone              String?
   address            String?
-  passwordHash       String
+  passwordHash       String?
   role               Role       @default(MANAGER)
   status             UserStatus @default(ACTIVE)
   warehouseId        String?
@@ -57,6 +57,7 @@ model User {
   createdAt          DateTime   @default(now())
   updatedAt          DateTime   @updatedAt
 
+  assignedWarehouses     UserWarehouse[]
   createdSales           Sale[]           @relation("CreatedSales")
   stockMovements         StockMovement[]
   auditLogs              AuditLog[]
@@ -71,6 +72,19 @@ model User {
   @@index([email])
   @@index([role])
   @@index([status])
+  @@index([warehouseId])
+}
+
+model UserWarehouse {
+  id          String    @id @default(uuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+
+  @@unique([userId, warehouseId])
+  @@index([userId])
   @@index([warehouseId])
 }
 
@@ -97,14 +111,15 @@ model Warehouse {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  stocks          WarehouseStock[]
-  purchaseItems   PurchaseItem[]
-  saleItems       SaleItem[]
-  sales           Sale[]
-  stockMovements  StockMovement[]
-  assignedUsers   User[]           @relation("UserWarehouse")
-  salesReturns    SalesReturn[]
-  purchaseReturns PurchaseReturn[]
+  stocks                 WarehouseStock[]
+  purchaseItems          PurchaseItem[]
+  saleItems              SaleItem[]
+  sales                  Sale[]
+  stockMovements         StockMovement[]
+  assignedUsers          User[]           @relation("UserWarehouse")
+  assignedUserWarehouses UserWarehouse[]
+  salesReturns           SalesReturn[]
+  purchaseReturns        PurchaseReturn[]
 
   @@index([isActive])
 }

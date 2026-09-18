@@ -6,7 +6,11 @@ import { logAudit } from "../../utils/audit.js";
 import { UserStatus, Role } from "@prisma/client";
 
 export class AuthService {
-  static async login(data: { username?: string; email?: string; password: string }) {
+  static async login(data: {
+    username?: string;
+    email?: string;
+    password: string;
+  }) {
     const identifier = (data.username || data.email || "").toLowerCase().trim();
 
     if (!identifier) {
@@ -36,8 +40,16 @@ export class AuthService {
       );
     }
 
-    const isMatch = await comparePassword(data.password, user.passwordHash);
-    if (!isMatch) {
+    // SR users are not authorized to log into the web system
+    if (user.role === Role.SR) {
+      throw new AppError(
+        "Sales Representative (SR) accounts are not authorized to log in.",
+        403,
+        "SR_LOGIN_FORBIDDEN",
+      );
+    }
+
+    if (!user.passwordHash) {
       throw new AppError(
         "Invalid username or password.",
         401,
@@ -45,12 +57,12 @@ export class AuthService {
       );
     }
 
-    // SR users are not authorized to log into the web system
-    if (user.role === Role.SR) {
+    const isMatch = await comparePassword(data.password, user.passwordHash);
+    if (!isMatch) {
       throw new AppError(
-        "Sales Representative (SR) accounts are not authorized to log in.",
-        403,
-        "SR_LOGIN_FORBIDDEN",
+        "Invalid username or password.",
+        401,
+        "INVALID_CREDENTIALS",
       );
     }
 
@@ -117,6 +129,14 @@ export class AuthService {
       throw new AppError("User not found.", 404, "USER_NOT_FOUND");
     }
 
+    if (!user.passwordHash) {
+      throw new AppError(
+        "Account has no password set.",
+        400,
+        "NO_PASSWORD_SET",
+      );
+    }
+
     const isMatch = await comparePassword(
       data.currentPassword,
       user.passwordHash,
@@ -178,7 +198,11 @@ export class AuthService {
       });
 
       if (existing) {
-        throw new AppError("This username is already taken.", 409, "USERNAME_EXISTS");
+        throw new AppError(
+          "This username is already taken.",
+          409,
+          "USERNAME_EXISTS",
+        );
       }
     }
 
@@ -193,7 +217,11 @@ export class AuthService {
       });
 
       if (existing) {
-        throw new AppError("An account with this email already exists.", 409, "EMAIL_EXISTS");
+        throw new AppError(
+          "An account with this email already exists.",
+          409,
+          "EMAIL_EXISTS",
+        );
       }
     }
 
@@ -203,10 +231,18 @@ export class AuthService {
         ...(data.name ? { name: data.name.trim() } : {}),
         ...(data.username ? { username: data.username.trim() } : {}),
         ...(data.email !== undefined
-          ? { email: data.email?.trim() ? data.email.toLowerCase().trim() : null }
+          ? {
+              email: data.email?.trim()
+                ? data.email.toLowerCase().trim()
+                : null,
+            }
           : {}),
-        ...(data.phone !== undefined ? { phone: data.phone?.trim() || null } : {}),
-        ...(data.address !== undefined ? { address: data.address?.trim() || null } : {}),
+        ...(data.phone !== undefined
+          ? { phone: data.phone?.trim() || null }
+          : {}),
+        ...(data.address !== undefined
+          ? { address: data.address?.trim() || null }
+          : {}),
       },
       select: {
         id: true,

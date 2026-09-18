@@ -282,6 +282,49 @@ describe("Inventory Management System — Acceptance Scenarios (Super Admin, Adm
       expect(res.body.code).toBe("FORBIDDEN");
     });
 
+    it("should allow creating SR without password and auto-generate username", async () => {
+      const createSrRes = await request(app)
+        .post("/api/users")
+        .set("Authorization", `Bearer ${adminToken}`)
+        .send({
+          name: "Field Sales Rep Passwordless",
+          role: "SR",
+        });
+      expect(createSrRes.status).toBe(201);
+      expect(createSrRes.body.data.role).toBe("SR");
+      expect(createSrRes.body.data.username).toBeDefined();
+      expect(createSrRes.body.data.username.startsWith("sr_")).toBe(true);
+
+      // Attempting to log in as this SR should still be forbidden
+      const srLoginRes = await request(app).post("/api/auth/login").send({
+        username: createSrRes.body.data.username,
+        password: "AnyPassword123!",
+      });
+      expect(srLoginRes.status).toBe(403);
+      expect(srLoginRes.body.code).toBe("SR_LOGIN_FORBIDDEN");
+    });
+
+    it("should allow assigning multiple warehouses to Manager and SR", async () => {
+      const whs = await prisma.warehouse.findMany({ take: 2 });
+      const whIds = whs.map((w) => w.id);
+
+      const createMgrRes = await request(app)
+        .post("/api/users")
+        .set("Authorization", `Bearer ${superAdminToken}`)
+        .send({
+          username: `multi_mgr_${Date.now()}`,
+          name: "Multi Warehouse Manager",
+          role: "MANAGER",
+          password: "ManagerPassword123!",
+          warehouseIds: whIds,
+        });
+      expect(createMgrRes.status).toBe(201);
+      expect(createMgrRes.body.data.assignedWarehouses).toBeDefined();
+      expect(createMgrRes.body.data.assignedWarehouses.length).toBe(
+        whIds.length,
+      );
+    });
+
     it("should prevent SR accounts from logging in", async () => {
       const srUsername = `sr_${Date.now()}`;
       const createSrRes = await request(app)

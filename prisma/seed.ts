@@ -21,7 +21,7 @@ async function main() {
 
   if (existingSuperAdmin) {
     console.log(
-      `Super Admin already exists (username: ${existingSuperAdmin.username || "N/A"}, id: ${existingSuperAdmin.id}). Skipping seed to preserve custom credentials.`
+      `Super Admin already exists (username: ${existingSuperAdmin.username || "N/A"}, id: ${existingSuperAdmin.id}). Skipping seed to preserve custom credentials.`,
     );
     console.log("Seed completed successfully (no changes made).");
     return;
@@ -41,7 +41,7 @@ async function main() {
   });
 
   console.log(
-    `Created default Super Admin successfully (Username: ${created.username}, ID: ${created.id}).`
+    `Created default Super Admin successfully (Username: ${created.username}, ID: ${created.id}).`,
   );
   console.log("Seed completed successfully.");
 }
