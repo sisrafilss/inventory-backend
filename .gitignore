@@ -8,3 +8,4 @@ coverage
 prisma/neon_*.json
 .vercel
 *.sql
+.env*
