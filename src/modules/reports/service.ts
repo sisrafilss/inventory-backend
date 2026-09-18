@@ -557,10 +557,10 @@ export class ReportsService {
     });
 
     const report = warehouses.map((wh) => {
-      let filteredStocks = wh.stocks;
+      let filteredStocks = (wh.stocks || []).filter((s) => Boolean(s?.product));
       if (query?.companyId) {
         filteredStocks = filteredStocks.filter(
-          (s) => s.product.companyId === query.companyId,
+          (s) => s.product?.companyId === query.companyId,
         );
       }
 
