@@ -8,11 +8,12 @@
 [![Vercel](https://img.shields.io/badge/Deployed-Vercel-black?logo=vercel)](https://vercel.com/)
 
 > **Language / ভাষা নির্বাচন:**  
-> 🇺🇸 **English Version (Default)** | [🇧🇩 বাংলা সংস্করণে যেতে নিচে স্ক্রোল করুন বা ক্লিক করুন](#-বাংলা-ডকুমেন্টেশন)
+> 🇺🇸 **English Version (Default)** | [🇧🇩 বাংলা সংস্করণে যান](#-বাংলা-ডকুমেন্টেশন) | [📖 **সুপার এডমিন সহজ বাংলা সহায়িকা (User Guide)**](https://github.com/sisrafilss/inventory-frontend/blob/dev/USER_GUIDE.md)
 
 ---
 
 ## 📑 Table of Contents (English)
+
 1. [Project Overview](#-project-overview)
 2. [Key Capabilities & Modules](#-key-capabilities--modules)
 3. [Architecture & System Design](#-architecture--system-design)
@@ -33,6 +34,7 @@
 The **M.R. Enterprise Inventory Management System Backend** is an enterprise-grade RESTful API built to handle the complex end-to-end operational demands of wholesale and retail distribution enterprises. Designed with strict transactional integrity, role-based security, and real-time auditability, this service orchestrates inventory warehousing, point-of-sale and invoice billing, supplier purchases, returns management, party dues ledgers, and advanced inventory velocity analytics.
 
 ### Core Business Domains Handled:
+
 - **Warehouse Logistics:** Multi-warehouse stock tracking, inter-warehouse movements, and manual stock reconciliations.
 - **Supply Chain & Purchases:** Cash and credit purchase invoicing, automated vendor ledger synchronization, and carton-to-piece pack conversions.
 - **Sales & Point of Sale (POS):** Fast barcode scanning checkout, manual order invoice creation, discount processing, and real-time gross profit calculation.
@@ -45,25 +47,25 @@ The **M.R. Enterprise Inventory Management System Backend** is an enterprise-gra
 
 The backend is structured into **17 decoupled functional modules**:
 
-| Module | Location | Purpose & Functionality |
-| :--- | :--- | :--- |
-| **Auth** | `src/modules/auth` | JWT token issuance, verification, password hashing, and user identity profile inspection. |
-| **Users** | `src/modules/users` | Multi-tier RBAC (`SUPER_ADMIN`, `ADMIN`, `MANAGER`), user status lifecycles (`PENDING`, `ACTIVE`, `REJECTED`, `INACTIVE`), and warehouse bindings. |
-| **Warehouses** | `src/modules/warehouses` | Multiple physical warehouse and stockroom locations, default warehouse designation, and status control. |
-| **Companies** | `src/modules/companies` | Manufacturer and brand registrations associated with product catalogs. |
-| **Categories** | `src/modules/categories` | Hierarchical catalog classification for reporting and filtering. |
-| **Products** | `src/modules/products` | Master product catalog, SKU/Barcode unique management, DP (Dealer Price) rate, Commission %, Cost Price, Selling Price, and pack-size conversions. |
-| **Inventory** | `src/modules/inventory` | Stock adjustments (`RESTOCK`, `DAMAGE`, `LOSS`, `CORRECTION`), warehouse stock transfers, and real-time balance inquiries. |
-| **Sales** | `src/modules/sales` | Transactional sales orders, barcode point of sale, line item allocations, profit calculation per item, and invoice generation. |
-| **Purchases** | `src/modules/purchases` | Vendor purchase orders, carton pack size loose item calculations, purchase cost adjustments, and supplier ledger dues updates. |
-| **Returns** | `src/modules/returns` | Sales Returns and Purchase Returns, restock handling, and financial refunds (Cash or Party Credit Adjustment). |
-| **Parties** | `src/modules/parties` | Customer and Supplier management, opening dues, credit limits, phone lookups, and SR (Sales Representative) dues segregation. |
-| **Payments** | `src/modules/payments` | Payment vouchers for Customer Collections and Supplier Payments across Cash, Bank, bKash, Nagad, and Cheque. |
-| **Expenses** | `src/modules/expenses` | Operational expense tracking categorized by utilities, rents, salaries, logistics, and office costs. |
-| **Reports** | `src/modules/reports` | Stock Aging analysis, Low Stock & Reorder Alerts, Product Velocity (Fast/Slow/Dead stock), Sales Summaries, Profit/Loss, and Party Ledgers. |
-| **Dashboard** | `src/modules/dashboard` | Real-time executive metrics: Today's sales, revenue, gross profit, inventory valuation, and pending alert counters. |
-| **Audit Logs** | `src/modules/audit` | Comprehensive audit trail logging every administrative modification with actor ID, entity reference, timestamp, and JSON metadata. |
-| **Settings** | `src/modules/settings` | Store configuration, business details, proprietor name, address, and invoice memo footer notes. |
+| Module         | Location                 | Purpose & Functionality                                                                                                                            |
+| :------------- | :----------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Auth**       | `src/modules/auth`       | JWT token issuance, verification, password hashing, and user identity profile inspection.                                                          |
+| **Users**      | `src/modules/users`      | Multi-tier RBAC (`SUPER_ADMIN`, `ADMIN`, `MANAGER`), user status lifecycles (`PENDING`, `ACTIVE`, `REJECTED`, `INACTIVE`), and warehouse bindings. |
+| **Warehouses** | `src/modules/warehouses` | Multiple physical warehouse and stockroom locations, default warehouse designation, and status control.                                            |
+| **Companies**  | `src/modules/companies`  | Manufacturer and brand registrations associated with product catalogs.                                                                             |
+| **Categories** | `src/modules/categories` | Hierarchical catalog classification for reporting and filtering.                                                                                   |
+| **Products**   | `src/modules/products`   | Master product catalog, SKU/Barcode unique management, DP (Dealer Price) rate, Commission %, Cost Price, Selling Price, and pack-size conversions. |
+| **Inventory**  | `src/modules/inventory`  | Stock adjustments (`RESTOCK`, `DAMAGE`, `LOSS`, `CORRECTION`), warehouse stock transfers, and real-time balance inquiries.                         |
+| **Sales**      | `src/modules/sales`      | Transactional sales orders, barcode point of sale, line item allocations, profit calculation per item, and invoice generation.                     |
+| **Purchases**  | `src/modules/purchases`  | Vendor purchase orders, carton pack size loose item calculations, purchase cost adjustments, and supplier ledger dues updates.                     |
+| **Returns**    | `src/modules/returns`    | Sales Returns and Purchase Returns, restock handling, and financial refunds (Cash or Party Credit Adjustment).                                     |
+| **Parties**    | `src/modules/parties`    | Customer and Supplier management, opening dues, credit limits, phone lookups, and SR (Sales Representative) dues segregation.                      |
+| **Payments**   | `src/modules/payments`   | Payment vouchers for Customer Collections and Supplier Payments across Cash, Bank, bKash, Nagad, and Cheque.                                       |
+| **Expenses**   | `src/modules/expenses`   | Operational expense tracking categorized by utilities, rents, salaries, logistics, and office costs.                                               |
+| **Reports**    | `src/modules/reports`    | Stock Aging analysis, Low Stock & Reorder Alerts, Product Velocity (Fast/Slow/Dead stock), Sales Summaries, Profit/Loss, and Party Ledgers.        |
+| **Dashboard**  | `src/modules/dashboard`  | Real-time executive metrics: Today's sales, revenue, gross profit, inventory valuation, and pending alert counters.                                |
+| **Audit Logs** | `src/modules/audit`      | Comprehensive audit trail logging every administrative modification with actor ID, entity reference, timestamp, and JSON metadata.                 |
+| **Settings**   | `src/modules/settings`   | Store configuration, business details, proprietor name, address, and invoice memo footer notes.                                                    |
 
 ---
 
@@ -168,6 +170,7 @@ erDiagram
 ```
 
 ### Key Numerical & Decimal Constraints:
+
 - Financial columns (`totalAmount`, `costPrice`, `sellingPrice`, `profit`, `openingDue`, `currentDue`) utilize `@db.Decimal(12, 2)` to eliminate floating-point calculation errors.
 - Inventory quantity columns (`quantity`, `reorderLevel`, `packSize`, `looseQuantity`) utilize `@db.Decimal(12, 3)` supporting fractional/metric units of measurement.
 
@@ -178,11 +181,13 @@ erDiagram
 All API routes are prefixed with `/api`. Protected routes require a Bearer token in the `Authorization` header: `Authorization: Bearer <TOKEN>`.
 
 ### 1. Authentication (`/api/auth`)
+
 - `POST /api/auth/login` — Authenticate user and receive JWT access token.
 - `GET /api/auth/me` — Inspect current authenticated user profile and roles.
 - `POST /api/auth/change-password` — Change password for authenticated session.
 
 ### 2. User Management (`/api/users`)
+
 - `GET /api/users` — List all registered users (Searchable by role, status, email).
 - `POST /api/users` — Create new administrative or manager user.
 - `GET /api/users/:id` — Get detailed user profile.
@@ -191,6 +196,7 @@ All API routes are prefixed with `/api`. Protected routes require a Bearer token
 - `DELETE /api/users/:id` — Delete user account.
 
 ### 3. Warehouses (`/api/warehouses`)
+
 - `GET /api/warehouses` — List all warehouse locations with stock count summaries.
 - `POST /api/warehouses` — Register a new physical warehouse.
 - `GET /api/warehouses/:id` — Retrieve warehouse details.
@@ -198,10 +204,12 @@ All API routes are prefixed with `/api`. Protected routes require a Bearer token
 - `DELETE /api/warehouses/:id` — Deactivate or remove warehouse.
 
 ### 4. Catalog: Categories & Companies (`/api/categories`, `/api/companies`)
+
 - `GET /api/categories`, `POST /api/categories`, `PUT /api/categories/:id`, `DELETE /api/categories/:id`
 - `GET /api/companies`, `POST /api/companies`, `PUT /api/companies/:id`, `DELETE /api/companies/:id`
 
 ### 5. Products (`/api/products`)
+
 - `GET /api/products` — List catalog products with pagination, category filter, company filter, and low-stock filter.
 - `POST /api/products` — Create new product (Unique SKU, Barcode, DP Rate, Pack Size).
 - `GET /api/products/:id` — Get product details and total stock across all warehouses.
@@ -210,45 +218,53 @@ All API routes are prefixed with `/api`. Protected routes require a Bearer token
 - `DELETE /api/products/:id` — Soft-delete / deactivate product.
 
 ### 6. Inventory Operations (`/api/inventory`)
+
 - `GET /api/inventory` — View current stock levels per warehouse and product.
 - `POST /api/inventory/adjustment` — Record manual stock adjustment (`DAMAGE`, `RESTOCK`, `LOSS`, `CORRECTION`).
 - `POST /api/inventory/transfer` — Transfer stock between source and destination warehouses.
 - `GET /api/inventory/movements` — Query granular stock movement history logs with filters.
 
 ### 7. Sales & Point of Sale (`/api/sales`)
+
 - `GET /api/sales` — List all sales invoices (Filterable by date range, customer, payment status).
 - `POST /api/sales` — Create sales invoice (Calculates profit, auto-deducts warehouse stock, syncs customer dues).
 - `GET /api/sales/:id` — Fetch complete invoice breakdown with line items.
 - `POST /api/sales/:id/cancel` — Cancel sale, restore warehouse stock, and reverse customer dues balance.
 
 ### 8. Purchases (`/api/purchases`)
+
 - `GET /api/purchases` — List vendor purchase transactions.
 - `POST /api/purchases` — Record vendor purchase (Restocks inventory, calculates item purchase rates, updates vendor dues).
 - `GET /api/purchases/:id` — Fetch purchase invoice breakdown.
 
 ### 9. Returns (`/api/returns`)
+
 - `POST /api/returns/sales` — Process customer sales return (Return stock to warehouse, issue cash refund or credit adjustment).
 - `POST /api/returns/purchases` — Process supplier return (Deduct stock, adjust supplier dues).
 - `GET /api/returns/sales`, `GET /api/returns/purchases` — List return transaction history.
 
 ### 10. Parties & Ledgers (`/api/parties`)
+
 - `GET /api/parties/customers`, `POST /api/parties/customers`, `PUT /api/parties/customers/:id`
 - `GET /api/parties/suppliers`, `POST /api/parties/suppliers`, `PUT /api/parties/suppliers/:id`
 - `GET /api/parties/customers/:id/ledger` — Full transactional statement of customer invoices and collections.
 - `GET /api/parties/suppliers/:id/ledger` — Full transactional statement of supplier bills and payments.
 
 ### 11. Payments & Collections (`/api/payments`)
+
 - `GET /api/payments` — View list of payment vouchers.
 - `POST /api/payments/customer-collection` — Collect payment from customer, reducing due balance.
 - `POST /api/payments/supplier-payment` — Disburse payment to supplier, reducing payable balance.
 - `GET /api/payments/:id` — View receipt voucher details.
 
 ### 12. Expenses (`/api/expenses`)
+
 - `GET /api/expenses` — List operational expenditures with category & date filters.
 - `POST /api/expenses` — Record expense entry.
 - `DELETE /api/expenses/:id` — Delete expense entry.
 
 ### 13. Advanced Analytics & Reports (`/api/reports`)
+
 - `GET /api/reports/dashboard` — High-level summary KPI counters.
 - `GET /api/reports/sales-summary` — Aggregated sales and profit performance over time.
 - `GET /api/reports/stock-aging` — Stock aging breakdown with configurable day brackets (`day1`, `day2`, `day3`, etc.).
@@ -257,6 +273,7 @@ All API routes are prefixed with `/api`. Protected routes require a Bearer token
 - `GET /api/reports/inventory-summary` — Total valuation of current inventory at cost vs. sale prices.
 
 ### 14. Settings & Audit Logs (`/api/settings`, `/api/audit-logs`)
+
 - `GET /api/settings`, `PUT /api/settings` — Update business name, address, contact, and memo footer.
 - `GET /api/audit-logs` — Administrative activity log query with entity filters.
 
@@ -292,10 +309,12 @@ SUPER_ADMIN_PASSWORD="SuperAdminInitialPassword123!"
 ## 🛠 Getting Started & Local Development
 
 ### Prerequisites:
+
 - **Node.js:** v20.x or v22.x
 - **PostgreSQL:** Local database instance OR a free cloud database on [Neon.tech](https://neon.tech).
 
 ### Installation Steps:
+
 ```bash
 # 1. Navigate to the backend directory
 cd backend
@@ -320,13 +339,13 @@ Health check endpoint: `http://localhost:5000/api/health`
 
 ## 💾 Database Migrations, Seeding & Backups
 
-| Command | Action |
-| :--- | :--- |
-| `npm run prisma:push` | Synchronizes `schema.prisma` directly to the target database without data loss. |
-| `npm run prisma:generate` | Rebuilds the `@prisma/client` TypeScript typings. |
-| `npm run seed` | Seeds default Super Admin if not already existing. |
-| `npm run db:dump` | Exports full database records into a JSON dump file. |
-| `npm run db:restore` | Restores records from a JSON dump file into the database. |
+| Command                   | Action                                                                          |
+| :------------------------ | :------------------------------------------------------------------------------ |
+| `npm run prisma:push`     | Synchronizes `schema.prisma` directly to the target database without data loss. |
+| `npm run prisma:generate` | Rebuilds the `@prisma/client` TypeScript typings.                               |
+| `npm run seed`            | Seeds default Super Admin if not already existing.                              |
+| `npm run db:dump`         | Exports full database records into a JSON dump file.                            |
+| `npm run db:restore`      | Restores records from a JSON dump file into the database.                       |
 
 ---
 
@@ -346,6 +365,7 @@ npm run test
 The backend is configured for zero-downtime serverless deployments on **Vercel** with connection-pooled **Neon PostgreSQL**:
 
 ### 1. Dual Environment Branching Workflow:
+
 - **`main` Branch (Production):**
   - Live Endpoint: `https://inventory-backend-production-main.vercel.app`
   - Connected Database: Production Neon DB instance (`DATABASE_URL_PRODUCTION_MAIN`)
@@ -356,6 +376,7 @@ The backend is configured for zero-downtime serverless deployments on **Vercel**
   - Target Audience: Feature testing, pull request validation, and QA verification.
 
 ### 2. Vercel Serverless Configuration (`vercel.json`):
+
 ```json
 {
   "version": 2,
@@ -367,6 +388,7 @@ The backend is configured for zero-downtime serverless deployments on **Vercel**
   ]
 }
 ```
+
 All incoming requests are redirected to `api/index.ts`, executing the Express app within an edge-optimized serverless container.
 
 ---
@@ -416,6 +438,7 @@ All incoming requests are redirected to `api/index.ts`, executing the Express ap
 ---
 
 ### 💻 টেকনোলজি স্ট্যাক:
+
 - **রানটাইম:** Node.js (v20+)
 - **ফ্রেমওয়ার্ক:** Express.js 4.21
 - **ল্যাঙ্গুয়েজ:** TypeScript 5.6
@@ -460,6 +483,7 @@ npm run seed
 # ৫. ডেভেলপমেন্ট সার্ভার চালু করুন
 npm run dev
 ```
+
 সার্ভারটি চালু হবে: `http://localhost:5000` ঠিকানায়।
 
 ---
@@ -467,6 +491,7 @@ npm run dev
 ### 🌐 Vercel ও Neon ক্লাউড ডেপ্লয়মেন্ট আর্কিটেকচার:
 
 সিস্টেমটি দুটি পৃথক ক্লাউড পরিবেশে পরিচালিত হয়:
+
 1. **প্রোডাকশন এনভায়রনমেন্ট (`main` ব্রাঞ্চ):**
    - লাইভ URL: `https://inventory-backend-production-main.vercel.app`
    - সংযুক্ত ডাটাবেজ: Neon Production DB (ক্লায়েন্টের আসল ডাটা)
@@ -477,6 +502,7 @@ npm run dev
 ---
 
 ### 👨‍💻 লেখক ও রক্ষণাবেক্ষণ:
+
 - **ডেভেলপার:** মো: ইসরাফিল হোসেন (Israfil Hossen)
 - **লাইসেন্স:** ISC License
 
