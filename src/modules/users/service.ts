@@ -294,22 +294,36 @@ export class UsersService {
   }
 
   static async updateUser(
-    actorId: string,
+    actor: { id: string; role: Role } | string,
     id: string,
     data: {
       username?: string;
       name?: string;
       email?: string | null;
-      phone?: string;
-      address?: string;
+      phone?: string | null;
+      address?: string | null;
       role?: Role;
+      status?: UserStatus;
       warehouseId?: string | null;
       warehouseIds?: string[] | null;
     },
   ) {
+    const actorId = typeof actor === "string" ? actor : actor.id;
+    const actorRole = typeof actor === "string" ? undefined : actor.role;
+
     const user = await prisma.user.findUnique({ where: { id } });
     if (!user) {
       throw new AppError("User not found.", 404, "USER_NOT_FOUND");
+    }
+
+    if (actorRole === Role.ADMIN) {
+      if (user.role === Role.ADMIN || user.role === Role.SUPER_ADMIN) {
+        throw new AppError(
+          "Admins cannot modify another Admin or Super Admin account.",
+          403,
+          "FORBIDDEN_ACTION",
+        );
+      }
     }
 
     if (
@@ -322,6 +336,26 @@ export class UsersService {
         403,
         "FORBIDDEN_ROLE_UPDATE",
       );
+    }
+
+    if (data.status !== undefined) {
+      if (id === actorId) {
+        throw new AppError(
+          "You cannot change your own account active status.",
+          400,
+          "CANNOT_MUTATE_SELF",
+        );
+      }
+      if (
+        user.role === Role.SUPER_ADMIN &&
+        data.status === UserStatus.INACTIVE
+      ) {
+        throw new AppError(
+          "Cannot deactivate a Super Admin account.",
+          403,
+          "CANNOT_DEACTIVATE_SUPER_ADMIN",
+        );
+      }
     }
 
     if (data.username && data.username.trim()) {
@@ -404,12 +438,13 @@ export class UsersService {
             }
           : {}),
         ...(data.phone !== undefined
-          ? { phone: data.phone.trim() || null }
+          ? { phone: data.phone?.trim() || null }
           : {}),
         ...(data.address !== undefined
-          ? { address: data.address.trim() || null }
+          ? { address: data.address?.trim() || null }
           : {}),
         ...(data.role ? { role: data.role } : {}),
+        ...(data.status !== undefined ? { status: data.status } : {}),
         ...(nextWarehouseId !== undefined
           ? { warehouseId: nextWarehouseId }
           : {}),
@@ -473,6 +508,14 @@ export class UsersService {
         "Cannot deactivate a Super Admin account.",
         403,
         "CANNOT_DEACTIVATE_SUPER_ADMIN",
+      );
+    }
+
+    if (actor.role === Role.ADMIN && targetUser.role === Role.ADMIN) {
+      throw new AppError(
+        "Admins cannot modify another Admin account status.",
+        403,
+        "FORBIDDEN_ACTION",
       );
     }
 

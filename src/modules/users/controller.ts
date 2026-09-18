@@ -51,7 +51,7 @@ export class UsersController {
   static async updateUser(req: Request, res: Response, next: NextFunction) {
     try {
       const user = await UsersService.updateUser(
-        req.user!.id,
+        { id: req.user!.id, role: req.user!.role },
         req.params.id,
         req.body,
       );

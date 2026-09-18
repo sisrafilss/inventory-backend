@@ -93,6 +93,7 @@ export const updateUserSchema = z.object({
     phone: z.string().optional().nullable().or(z.literal("")),
     address: z.string().optional().nullable().or(z.literal("")),
     role: z.enum([Role.ADMIN, Role.MANAGER, Role.SR]).optional(),
+    status: z.nativeEnum(UserStatus).optional(),
     warehouseId: z
       .string()
       .uuid("Invalid warehouse ID")
