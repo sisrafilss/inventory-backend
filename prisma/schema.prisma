@@ -12,6 +12,7 @@ enum Role {
   SUPER_ADMIN
   ADMIN
   MANAGER
+  SR
 }
 
 enum UserStatus {
@@ -63,6 +64,7 @@ model User {
   payments       PartyPayment[]  @relation("CreatedPayments")
   createdSalesReturns    SalesReturn[]    @relation("CreatedSalesReturns")
   createdPurchaseReturns PurchaseReturn[] @relation("CreatedPurchaseReturns")
+  customerSrDues         CustomerSrDue[]  @relation("CustomerSrDues")
 
   @@index([email])
   @@index([role])
@@ -224,6 +226,8 @@ model CustomerSrDue {
   customerId String
   customer   Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
   srName     String
+  srUserId   String?
+  srUser     User?    @relation("CustomerSrDues", fields: [srUserId], references: [id], onDelete: SetNull)
   openingDue Decimal  @default(0.00) @db.Decimal(12, 2)
   currentDue Decimal  @default(0.00) @db.Decimal(12, 2)
   createdAt  DateTime @default(now())
@@ -232,6 +236,7 @@ model CustomerSrDue {
   @@unique([customerId, srName])
   @@index([customerId])
   @@index([srName])
+  @@index([srUserId])
 }
 
 model Purchase {

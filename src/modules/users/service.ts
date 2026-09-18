@@ -337,4 +337,23 @@ export class UsersService {
         "Password reset successfully. The user must change password upon next login.",
     };
   }
+
+  static async listSrs() {
+    const srs = await prisma.user.findMany({
+      where: {
+        role: Role.SR,
+        status: UserStatus.ACTIVE,
+      },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        address: true,
+        status: true,
+      },
+      orderBy: { name: "asc" },
+    });
+    return srs;
+  }
 }

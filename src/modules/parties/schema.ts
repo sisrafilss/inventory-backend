@@ -65,6 +65,7 @@ export const createCustomerSchema = z.object({
       .array(
         z.object({
           srName: z.string().trim().min(1, "SR name cannot be empty"),
+          srUserId: z.string().uuid().optional().nullable().or(z.literal("")),
           openingDue: z.number().min(0).optional(),
           currentDue: z.number().min(0).optional(),
         }),
@@ -95,6 +96,7 @@ export const updateCustomerSchema = z.object({
       .array(
         z.object({
           srName: z.string().trim().min(1, "SR name cannot be empty"),
+          srUserId: z.string().uuid().optional().nullable().or(z.literal("")),
           openingDue: z.number().min(0).optional(),
           currentDue: z.number().min(0).optional(),
         }),

@@ -86,4 +86,13 @@ export class UsersController {
       next(error);
     }
   }
+
+  static async listSrs(req: Request, res: Response, next: NextFunction) {
+    try {
+      const srs = await UsersService.listSrs();
+      return sendSuccess(res, srs);
+    } catch (error) {
+      next(error);
+    }
+  }
 }

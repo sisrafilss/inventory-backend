@@ -5,7 +5,7 @@ export const createUserSchema = z.object({
   body: z.object({
     name: z.string().min(2, "Name must be at least 2 characters"),
     email: z.string().email("Invalid email address"),
-    role: z.enum([Role.ADMIN, Role.MANAGER]),
+    role: z.enum([Role.ADMIN, Role.MANAGER, Role.SR]),
     password: z.string().min(6, "Password must be at least 6 characters"),
     phone: z.string().optional(),
     address: z.string().optional(),
@@ -18,7 +18,7 @@ export const updateUserSchema = z.object({
     name: z.string().min(2).optional(),
     phone: z.string().optional(),
     address: z.string().optional(),
-    role: z.enum([Role.ADMIN, Role.MANAGER]).optional(),
+    role: z.enum([Role.ADMIN, Role.MANAGER, Role.SR]).optional(),
     warehouseId: z.string().uuid("Invalid warehouse ID").optional().nullable().or(z.literal("")),
   }),
 });

@@ -1,7 +1,7 @@
 import { prisma } from "../../config/db.js";
 import { AppError } from "../../errors/AppError.js";
 import { logAudit } from "../../utils/audit.js";
-import { Prisma } from "@prisma/client";
+import { Prisma, Role } from "@prisma/client";
 
 export class PartiesService {
   // ================= SUPPLIERS =================
@@ -507,10 +507,15 @@ export class PartiesService {
       select: { srGroup: true },
       distinct: ["srGroup"],
     });
+    const userSrs = await prisma.user.findMany({
+      where: { role: Role.SR, status: "ACTIVE" },
+      select: { name: true },
+    });
 
     const set = new Set<string>();
     duesSrs.forEach((d) => d.srName && set.add(d.srName.trim()));
     custSrs.forEach((c) => c.srGroup && set.add(c.srGroup!.trim()));
+    userSrs.forEach((u) => u.name && set.add(u.name.trim()));
     return Array.from(set).sort();
   }
 
@@ -527,6 +532,7 @@ export class PartiesService {
       srGroup?: string | null;
       srDues?: Array<{
         srName: string;
+        srUserId?: string | null;
         openingDue?: number;
         currentDue?: number;
       }>;
@@ -558,6 +564,7 @@ export class PartiesService {
       .filter((d) => d.srName && d.srName.trim())
       .map((d) => ({
         srName: d.srName.trim(),
+        srUserId: d.srUserId || null,
         openingDue: Number(d.openingDue ?? d.currentDue) || 0,
         currentDue: Number(d.currentDue ?? d.openingDue) || 0,
       }));
@@ -640,6 +647,7 @@ export class PartiesService {
       srGroup?: string | null;
       srDues?: Array<{
         srName: string;
+        srUserId?: string | null;
         openingDue?: number;
         currentDue?: number;
       }>;
@@ -688,6 +696,7 @@ export class PartiesService {
         .filter((d) => d.srName && d.srName.trim())
         .map((d) => ({
           srName: d.srName.trim(),
+          srUserId: d.srUserId || null,
           openingDue: Number(d.openingDue ?? d.currentDue) || 0,
           currentDue: Number(d.currentDue ?? d.openingDue) || 0,
         }));
