@@ -96,11 +96,13 @@ export class PartiesController {
           : undefined;
       const hasDue = req.query.hasDue === "true";
       const srGroup = req.query.srGroup as string;
+      const customerType = req.query.customerType as any;
       const customers = await PartiesService.listCustomers({
         search: req.query.search as string,
         isActive,
         hasDue,
         srGroup,
+        customerType,
       });
       return sendSuccess(res, customers);
     } catch (error) {

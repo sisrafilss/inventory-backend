@@ -60,6 +60,7 @@ export const listSalesSchema = z.object({
     srUserId: z.string().uuid().optional(),
     srName: z.string().optional(),
     search: z.string().optional(),
+    customerType: z.enum(["ALL", "RETAIL", "WHOLESALE"]).optional(),
     startDate: z.string().optional(),
     endDate: z.string().optional(),
   }),

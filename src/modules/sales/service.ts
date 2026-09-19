@@ -448,6 +448,7 @@ export class SalesService {
                 phone: true,
                 address: true,
                 currentDue: true,
+                customerType: true,
               },
             },
             warehouse: {
@@ -570,7 +571,9 @@ export class SalesService {
                 await tx.customerSrDue.update({
                   where: { id: existingSrDue.id },
                   data: {
-                    ...(dueAmount > 0 ? { currentDue: { increment: dueAmount } } : {}),
+                    ...(dueAmount > 0
+                      ? { currentDue: { increment: dueAmount } }
+                      : {}),
                     srUserId: data.srUserId || existingSrDue.srUserId,
                   },
                 });
@@ -627,6 +630,7 @@ export class SalesService {
       srUserId?: string;
       srName?: string;
       search?: string;
+      customerType?: "ALL" | "RETAIL" | "WHOLESALE";
       startDate?: string;
       endDate?: string;
     },
@@ -643,6 +647,13 @@ export class SalesService {
 
     if (query.customerId) {
       where.customerId = query.customerId;
+    }
+
+    if (query.customerType && query.customerType !== "ALL") {
+      where.customer = {
+        ...((where.customer as any) || {}),
+        customerType: query.customerType,
+      };
     }
 
     if (query.srUserId) {
@@ -693,7 +704,7 @@ export class SalesService {
         orderBy: { createdAt: "desc" },
         include: {
           customer: {
-            select: { id: true, name: true, phone: true, currentDue: true },
+            select: { id: true, name: true, phone: true, currentDue: true, customerType: true },
           },
           warehouse: {
             select: { id: true, name: true },
@@ -709,8 +720,8 @@ export class SalesService {
                   name: true,
                   sku: true,
                   unit: true,
-                  sellingPrice: true,
                   costPrice: requestUser.role !== Role.MANAGER,
+                  sellingPrice: true,
                   company: { select: { id: true, name: true } },
                 },
               },
@@ -726,16 +737,14 @@ export class SalesService {
       }),
     ]);
 
-    const formattedSales = sales.map((s) =>
-      this.formatSaleResponse(s, requestUser.role),
-    );
-
     return {
-      sales: formattedSales,
+      sales: sales.map((s) =>
+        this.formatSaleResponse(s, requestUser.role),
+      ),
       meta: {
+        total,
         page,
         limit,
-        total,
         totalPages: Math.ceil(total / limit),
       },
     };
@@ -755,6 +764,7 @@ export class SalesService {
             phone: true,
             address: true,
             currentDue: true,
+            customerType: true,
           },
         },
         warehouse: {

@@ -27,6 +27,11 @@ enum SaleStatus {
   CANCELLED
 }
 
+enum CustomerType {
+  RETAIL
+  WHOLESALE
+}
+
 enum StockMovementType {
   RESTOCK
   DAMAGE
@@ -222,10 +227,11 @@ model Customer {
   address     String?
   openingDue  Decimal  @default(0.00) @db.Decimal(12, 2)
   currentDue  Decimal  @default(0.00) @db.Decimal(12, 2)
-  srGroup     String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  srGroup      String?
+  customerType CustomerType @default(WHOLESALE)
+  isActive     Boolean      @default(true)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
 
   sales        Sale[]
   payments     PartyPayment[]
@@ -237,6 +243,7 @@ model Customer {
   @@index([companyName])
   @@index([phone])
   @@index([srGroup])
+  @@index([customerType])
   @@index([isActive])
 }
 

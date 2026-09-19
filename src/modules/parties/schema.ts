@@ -71,6 +71,7 @@ export const createCustomerSchema = z.object({
         }),
       )
       .optional(),
+    customerType: z.enum(["RETAIL", "WHOLESALE"]).optional().default("WHOLESALE"),
     isActive: z.boolean().optional(),
   }),
 });
@@ -102,6 +103,7 @@ export const updateCustomerSchema = z.object({
         }),
       )
       .optional(),
+    customerType: z.enum(["RETAIL", "WHOLESALE"]).optional(),
     isActive: z.boolean().optional(),
   }),
 });
@@ -112,7 +114,12 @@ export const addCustomerSrSchema = z.object({
   }),
   body: z.object({
     srName: z.string().trim().min(1, "SR name cannot be empty").max(255),
-    srUserId: z.string().uuid("Invalid SR user ID").optional().nullable().or(z.literal("")),
+    srUserId: z
+      .string()
+      .uuid("Invalid SR user ID")
+      .optional()
+      .nullable()
+      .or(z.literal("")),
   }),
 });
 
@@ -122,6 +129,6 @@ export const listPartiesSchema = z.object({
     isActive: z.enum(["true", "false"]).optional(),
     hasDue: z.enum(["true", "false"]).optional(),
     srGroup: z.string().optional(),
+    customerType: z.enum(["ALL", "RETAIL", "WHOLESALE"]).optional(),
   }),
 });
-

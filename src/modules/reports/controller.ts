@@ -11,6 +11,7 @@ export class ReportsController {
         endDate: req.query.endDate as string,
         createdById: req.query.createdById as string,
         status: req.query.status as SaleStatus,
+        customerType: req.query.customerType as any,
         page: req.query.page ? parseInt(req.query.page as string, 10) : 1,
         limit: req.query.limit ? parseInt(req.query.limit as string, 10) : 50,
       });
@@ -88,6 +89,7 @@ export class ReportsController {
         type: req.query.type as "ALL" | "CUSTOMER" | "SUPPLIER",
         search: req.query.search as string,
         srGroup: req.query.srGroup as string,
+        customerType: req.query.customerType as any,
       });
       return sendSuccess(res, report);
     } catch (error) {

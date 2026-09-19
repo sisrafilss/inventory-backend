@@ -30,12 +30,25 @@ export class SalesController {
       const srUserId = req.query.srUserId as string;
       const srName = req.query.srName as string;
       const search = req.query.search as string;
+      const customerType = req.query.customerType as any;
       const startDate = req.query.startDate as string;
       const endDate = req.query.endDate as string;
 
       const { sales, meta } = await SalesService.listSales(
         { id: req.user!.id, role: req.user!.role },
-        { page, limit, status, createdById, customerId, srUserId, srName, search, startDate, endDate },
+        {
+          page,
+          limit,
+          status,
+          createdById,
+          customerId,
+          srUserId,
+          srName,
+          search,
+          customerType,
+          startDate,
+          endDate,
+        },
       );
 
       return sendSuccess(res, sales, undefined, 200, meta);

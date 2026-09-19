@@ -7,6 +7,7 @@ export class ReportsService {
     endDate?: string;
     createdById?: string;
     status?: SaleStatus;
+    customerType?: "ALL" | "RETAIL" | "WHOLESALE";
     page?: number;
     limit?: number;
   }) {
@@ -22,6 +23,12 @@ export class ReportsService {
 
     if (query.createdById) {
       where.createdById = query.createdById;
+    }
+
+    if (query.customerType && query.customerType !== "ALL") {
+      where.customer = {
+        customerType: query.customerType,
+      };
     }
 
     if (query.startDate || query.endDate) {
@@ -45,6 +52,7 @@ export class ReportsService {
         orderBy: { createdAt: "desc" },
         include: {
           createdBy: { select: { id: true, name: true, email: true } },
+          customer: { select: { id: true, name: true, phone: true, customerType: true } },
           items: {
             include: {
               product: { select: { id: true, name: true, sku: true } },
@@ -58,6 +66,8 @@ export class ReportsService {
       saleId: s.id,
       referenceNumber: s.referenceNumber,
       date: s.createdAt,
+      customerName: s.customer?.name || s.customerName || "Walk-in Customer",
+      customerType: s.customer?.customerType || null,
       createdByName: s.createdBy.name,
       createdByEmail: s.createdBy.email,
       totalAmount: Number(s.totalAmount),
@@ -280,10 +290,12 @@ export class ReportsService {
     type?: "ALL" | "CUSTOMER" | "SUPPLIER";
     search?: string;
     srGroup?: string;
+    customerType?: "ALL" | "RETAIL" | "WHOLESALE";
   }) {
     const type = query.type || "ALL";
     const s = query.search?.trim();
     const srGroup = query.srGroup?.trim();
+    const customerType = query.customerType;
 
     // Collect distinct SR groups from customerSrDue and customer.srGroup
     const duesSrs = await prisma.customerSrDue.findMany({
@@ -310,17 +322,18 @@ export class ReportsService {
           where: {
             srName: { equals: srGroup, mode: "insensitive" },
             currentDue: { gt: 0 },
-            ...(s
-              ? {
-                  customer: {
+            customer: {
+              ...(customerType && customerType !== "ALL" ? { customerType } : {}),
+              ...(s
+                ? {
                     OR: [
                       { name: { contains: s, mode: "insensitive" } },
                       { phone: { contains: s, mode: "insensitive" } },
                       { companyName: { contains: s, mode: "insensitive" } },
                     ],
-                  },
-                }
-              : {}),
+                  }
+                : {}),
+            },
           },
           include: { customer: true },
           orderBy: { currentDue: "desc" },
@@ -334,6 +347,7 @@ export class ReportsService {
             id: { notIn: Array.from(matchedCustIds) },
             srGroup: { equals: srGroup, mode: "insensitive" },
             currentDue: { gt: 0 },
+            ...(customerType && customerType !== "ALL" ? { customerType } : {}),
             ...(s
               ? {
                   OR: [
@@ -353,6 +367,7 @@ export class ReportsService {
             name: d.customer.name,
             companyName: d.customer.companyName,
             phone: d.customer.phone,
+            customerType: d.customer.customerType || "WHOLESALE",
             srGroup: d.srName,
             dueAmount: Number(d.currentDue),
             currentDue: Number(d.currentDue),
@@ -363,6 +378,7 @@ export class ReportsService {
             name: c.name,
             companyName: c.companyName,
             phone: c.phone,
+            customerType: c.customerType || "WHOLESALE",
             srGroup: c.srGroup,
             dueAmount: Number(c.currentDue),
             currentDue: Number(c.currentDue),
@@ -372,6 +388,7 @@ export class ReportsService {
         // All SRs: list customers with dues, including their SR breakdown
         const customerWhere: Prisma.CustomerWhereInput = {
           currentDue: { gt: 0 },
+          ...(customerType && customerType !== "ALL" ? { customerType } : {}),
         };
         if (s) {
           customerWhere.OR = [
@@ -408,6 +425,7 @@ export class ReportsService {
             name: c.name,
             companyName: c.companyName,
             phone: c.phone,
+            customerType: c.customerType || "WHOLESALE",
             srGroup: srLabel,
             dueAmount: Number(c.currentDue),
             currentDue: Number(c.currentDue),

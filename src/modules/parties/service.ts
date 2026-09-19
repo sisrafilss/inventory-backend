@@ -276,8 +276,13 @@ export class PartiesService {
     isActive?: boolean;
     hasDue?: boolean;
     srGroup?: string;
+    customerType?: "ALL" | "RETAIL" | "WHOLESALE";
   }) {
     const where: Prisma.CustomerWhereInput = {};
+
+    if (query.customerType && query.customerType !== "ALL") {
+      where.customerType = query.customerType;
+    }
 
     if (query.isActive !== undefined) {
       where.isActive = query.isActive;
@@ -530,6 +535,7 @@ export class PartiesService {
     data: {
       code: string;
       name: string;
+      customerType?: "RETAIL" | "WHOLESALE";
       companyName?: string | null;
       phone?: string | null;
       email?: string | null;
@@ -565,28 +571,35 @@ export class PartiesService {
       );
     }
 
-    // Process SR dues if provided
-    const validSrDues = (data.srDues || [])
-      .filter((d) => d.srName && d.srName.trim())
-      .map((d) => ({
-        srName: d.srName.trim(),
-        srUserId: d.srUserId || null,
-        openingDue: Number(d.openingDue ?? d.currentDue) || 0,
-        currentDue: Number(d.currentDue ?? d.openingDue) || 0,
-      }));
+    const customerType = data.customerType || "WHOLESALE";
+    const isRetail = customerType === "RETAIL";
+
+    // Process SR dues if provided (only for wholesale)
+    const validSrDues = isRetail
+      ? []
+      : (data.srDues || [])
+          .filter((d) => d.srName && d.srName.trim())
+          .map((d) => ({
+            srName: d.srName.trim(),
+            srUserId: d.srUserId || null,
+            openingDue: Number(d.openingDue ?? d.currentDue) || 0,
+            currentDue: Number(d.currentDue ?? d.openingDue) || 0,
+          }));
 
     const srDuesSum = validSrDues.reduce((sum, d) => sum + d.openingDue, 0);
     const openingDue =
-      validSrDues.length > 0 ? srDuesSum : data.openingDue || 0;
-    const primarySrGroup =
-      (data.srGroup && data.srGroup.trim()) || validSrDues[0]?.srName || null;
+      validSrDues.length > 0 ? srDuesSum : Number(data.openingDue) || 0;
+    const primarySrGroup = isRetail
+      ? null
+      : (data.srGroup && data.srGroup.trim()) || validSrDues[0]?.srName || null;
 
     const customer = await prisma.customer.create({
       data: {
         code: trimmedCode,
         name: data.name.trim(),
+        customerType,
         companyName:
-          data.companyName && data.companyName.trim()
+          !isRetail && data.companyName && data.companyName.trim()
             ? data.companyName.trim()
             : null,
         phone: data.phone && data.phone.trim() ? data.phone.trim() : null,
@@ -630,6 +643,7 @@ export class PartiesService {
       metadata: {
         code: customer.code,
         name: customer.name,
+        customerType: customer.customerType,
         companyName: customer.companyName,
         phone: customer.phone,
         srGroup: customer.srGroup,
@@ -657,6 +671,7 @@ export class PartiesService {
         openingDue?: number;
         currentDue?: number;
       }>;
+      customerType?: "RETAIL" | "WHOLESALE";
       isActive?: boolean;
     },
   ) {
@@ -745,6 +760,7 @@ export class PartiesService {
         ...(newCurrentDue !== undefined && {
           currentDue: newCurrentDue,
         }),
+        ...(data.customerType !== undefined && { customerType: data.customerType }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
       },
       include: {
@@ -827,12 +843,16 @@ export class PartiesService {
         result = await prisma.customerSrDue.update({
           where: { id: existing.id },
           data: { srUserId: effectiveUserId },
-          include: { srUser: { select: { id: true, name: true, phone: true } } },
+          include: {
+            srUser: { select: { id: true, name: true, phone: true } },
+          },
         });
       } else {
         result = await prisma.customerSrDue.findUnique({
           where: { id: existing.id },
-          include: { srUser: { select: { id: true, name: true, phone: true } } },
+          include: {
+            srUser: { select: { id: true, name: true, phone: true } },
+          },
         });
       }
     } else {
