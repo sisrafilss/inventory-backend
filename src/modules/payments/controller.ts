@@ -53,6 +53,8 @@ export class PaymentsController {
         type: req.query.type as string,
         customerId: req.query.customerId as string,
         supplierId: req.query.supplierId as string,
+        srUserId: req.query.srUserId as string,
+        srName: req.query.srName as string,
         paymentMethod: req.query.paymentMethod as string,
         startDate: req.query.startDate as string,
         endDate: req.query.endDate as string,

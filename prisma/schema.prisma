@@ -67,6 +67,7 @@ model User {
   createdSalesReturns    SalesReturn[]    @relation("CreatedSalesReturns")
   createdPurchaseReturns PurchaseReturn[] @relation("CreatedPurchaseReturns")
   customerSrDues         CustomerSrDue[]  @relation("CustomerSrDues")
+  srPayments             PartyPayment[]   @relation("SrPayments")
 
   @@index([username])
   @@index([email])
@@ -386,6 +387,9 @@ model PartyPayment {
   amount        Decimal   @db.Decimal(12, 2)
   paymentMethod String    @default("CASH") // CASH, BANK, BKASH, NAGAD, CHEQUE
   referenceNote String?
+  srUserId      String?
+  srUser        User?     @relation("SrPayments", fields: [srUserId], references: [id], onDelete: SetNull)
+  srName        String?
   createdById   String
   createdBy     User      @relation("CreatedPayments", fields: [createdById], references: [id])
   createdAt     DateTime  @default(now())
@@ -393,6 +397,8 @@ model PartyPayment {
   @@index([type])
   @@index([customerId])
   @@index([supplierId])
+  @@index([srUserId])
+  @@index([srName])
   @@index([createdAt])
 }
 

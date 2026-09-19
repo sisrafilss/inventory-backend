@@ -9,6 +9,8 @@ export const collectFromCustomerSchema = z.object({
       .default("CASH"),
     referenceNote: z.string().max(500).optional(),
     date: z.string().optional(),
+    srUserId: z.string().uuid("Invalid SR User ID").nullable().optional(),
+    srName: z.string().max(255).nullable().optional(),
   }),
 });
 
@@ -35,6 +37,8 @@ export const updatePaymentSchema = z.object({
       .optional(),
     referenceNote: z.string().max(500).optional(),
     date: z.string().optional(),
+    srUserId: z.string().uuid("Invalid SR User ID").nullable().optional(),
+    srName: z.string().max(255).nullable().optional(),
   }),
 });
 
@@ -45,6 +49,8 @@ export const listPaymentsSchema = z.object({
     type: z.enum(["CUSTOMER_COLLECTION", "SUPPLIER_PAYMENT"]).optional(),
     customerId: z.string().uuid().optional(),
     supplierId: z.string().uuid().optional(),
+    srUserId: z.string().uuid().optional(),
+    srName: z.string().optional(),
     paymentMethod: z.string().optional(),
     startDate: z.string().optional(),
     endDate: z.string().optional(),

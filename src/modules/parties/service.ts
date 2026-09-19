@@ -369,6 +369,9 @@ export class PartiesService {
           { companyName: { contains: trimmed, mode: "insensitive" } },
         ],
       },
+      include: {
+        srDues: true,
+      },
     });
 
     // 2. If not found and input is an integer (e.g. 1, 2, 3...), lookup by sequential order
@@ -379,6 +382,9 @@ export class PartiesService {
           orderBy: { createdAt: "asc" },
           skip: num - 1,
           take: 1,
+          include: {
+            srDues: true,
+          },
         });
         if (sequential.length > 0) {
           customer = sequential[0];

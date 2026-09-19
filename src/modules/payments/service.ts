@@ -18,6 +18,8 @@ export class PaymentsService {
       paymentMethod: string;
       referenceNote?: string;
       date?: string;
+      srUserId?: string | null;
+      srName?: string | null;
     },
   ) {
     return prisma.$transaction(
@@ -46,6 +48,51 @@ export class PaymentsService {
           );
         }
 
+        // Check if an SR is specified and validate/decrement SR due
+        let effectiveSrName = data.srName?.trim() || null;
+        let effectiveSrUserId = data.srUserId || null;
+
+        if (effectiveSrUserId && !effectiveSrName) {
+          const srUser = await tx.user.findUnique({
+            where: { id: effectiveSrUserId },
+            select: { name: true },
+          });
+          if (srUser) effectiveSrName = srUser.name;
+        }
+
+        let matchedSrDue = null;
+        if (effectiveSrName) {
+          matchedSrDue = await tx.customerSrDue.findFirst({
+            where: {
+              customerId: data.customerId,
+              OR: [
+                { srName: { equals: effectiveSrName, mode: "insensitive" } },
+                ...(effectiveSrUserId ? [{ srUserId: effectiveSrUserId }] : []),
+              ],
+            },
+          });
+
+          if (matchedSrDue) {
+            const srDueAmount = Number(matchedSrDue.currentDue);
+            if (data.amount > srDueAmount) {
+              throw new AppError(
+                `Collection amount (৳${data.amount.toLocaleString()}) cannot exceed SR "${matchedSrDue.srName}"'s outstanding due (৳${srDueAmount.toLocaleString()}).`,
+                400,
+                "AMOUNT_EXCEEDS_SR_DUE",
+              );
+            }
+
+            await tx.customerSrDue.update({
+              where: { id: matchedSrDue.id },
+              data: {
+                currentDue: {
+                  decrement: data.amount,
+                },
+              },
+            });
+          }
+        }
+
         const receiptNumber = this.generateReceiptNumber("COL");
 
         // Decrement customer due
@@ -66,11 +113,14 @@ export class PaymentsService {
             amount: data.amount,
             paymentMethod: data.paymentMethod,
             referenceNote: data.referenceNote || null,
+            srUserId: effectiveSrUserId,
+            srName: effectiveSrName,
             createdById: actorId,
             ...(data.date ? { createdAt: new Date(data.date) } : {}),
           },
           include: {
             customer: true,
+            srUser: { select: { id: true, name: true, phone: true } },
             createdBy: { select: { id: true, name: true, role: true } },
           },
         });
@@ -86,6 +136,8 @@ export class PaymentsService {
               customerName: customer.name,
               amount: data.amount,
               remainingDue: updatedCustomer.currentDue,
+              srName: effectiveSrName,
+              srUserId: effectiveSrUserId,
             },
           },
         });
@@ -188,6 +240,8 @@ export class PaymentsService {
     type?: string;
     customerId?: string;
     supplierId?: string;
+    srUserId?: string;
+    srName?: string;
     paymentMethod?: string;
     startDate?: string;
     endDate?: string;
@@ -201,6 +255,9 @@ export class PaymentsService {
     if (query.type) where.type = query.type;
     if (query.customerId) where.customerId = query.customerId;
     if (query.supplierId) where.supplierId = query.supplierId;
+    if (query.srUserId) where.srUserId = query.srUserId;
+    if (query.srName)
+      where.srName = { contains: query.srName, mode: "insensitive" };
     if (query.paymentMethod) where.paymentMethod = query.paymentMethod;
 
     if (query.startDate || query.endDate) {
@@ -224,6 +281,7 @@ export class PaymentsService {
           supplier: {
             select: { id: true, name: true, companyName: true, phone: true },
           },
+          srUser: { select: { id: true, name: true, phone: true } },
           createdBy: { select: { id: true, name: true, role: true } },
         },
       }),
@@ -250,8 +308,9 @@ export class PaymentsService {
     const payment = await prisma.partyPayment.findUnique({
       where: { id },
       include: {
-        customer: true,
+        customer: { include: { srDues: true } },
         supplier: true,
+        srUser: { select: { id: true, name: true, phone: true } },
         createdBy: { select: { id: true, name: true, role: true } },
       },
     });
@@ -287,8 +346,9 @@ export class PaymentsService {
         ],
       },
       include: {
-        customer: true,
+        customer: { include: { srDues: true } },
         supplier: true,
+        srUser: { select: { id: true, name: true, phone: true } },
         createdBy: { select: { id: true, name: true, role: true } },
       },
     });
@@ -312,6 +372,8 @@ export class PaymentsService {
       paymentMethod?: string;
       referenceNote?: string;
       date?: string;
+      srUserId?: string | null;
+      srName?: string | null;
     },
   ) {
     return prisma.$transaction(
@@ -333,6 +395,15 @@ export class PaymentsService {
         const newAmount =
           data.amount !== undefined ? Number(data.amount) : oldAmount;
         const diff = newAmount - oldAmount;
+
+        const effectiveSrName =
+          data.srName !== undefined
+            ? data.srName?.trim() || null
+            : payment.srName;
+        const effectiveSrUserId =
+          data.srUserId !== undefined
+            ? data.srUserId || null
+            : payment.srUserId;
 
         if (diff !== 0) {
           if (
@@ -357,6 +428,41 @@ export class PaymentsService {
                 },
               },
             });
+
+            // If an SR was assigned, adjust SR due record as well
+            if (effectiveSrName) {
+              const srDueRecord = await tx.customerSrDue.findFirst({
+                where: {
+                  customerId: payment.customerId,
+                  OR: [
+                    {
+                      srName: { equals: effectiveSrName, mode: "insensitive" },
+                    },
+                    ...(effectiveSrUserId
+                      ? [{ srUserId: effectiveSrUserId }]
+                      : []),
+                  ],
+                },
+              });
+              if (srDueRecord) {
+                const maxSrAllowed = Number(srDueRecord.currentDue) + oldAmount;
+                if (newAmount > maxSrAllowed) {
+                  throw new AppError(
+                    `Updated collection amount (৳${newAmount.toLocaleString()}) cannot exceed SR "${srDueRecord.srName}"'s total due before this transaction (৳${maxSrAllowed.toLocaleString()}).`,
+                    400,
+                    "AMOUNT_EXCEEDS_SR_DUE",
+                  );
+                }
+                await tx.customerSrDue.update({
+                  where: { id: srDueRecord.id },
+                  data: {
+                    currentDue: {
+                      decrement: diff,
+                    },
+                  },
+                });
+              }
+            }
           } else if (
             payment.type === "SUPPLIER_PAYMENT" &&
             payment.supplierId &&
@@ -391,11 +497,14 @@ export class PaymentsService {
               data.referenceNote !== undefined
                 ? data.referenceNote
                 : payment.referenceNote,
+            srUserId: effectiveSrUserId,
+            srName: effectiveSrName,
             ...(data.date ? { createdAt: new Date(data.date) } : {}),
           },
           include: {
             customer: true,
             supplier: true,
+            srUser: { select: { id: true, name: true, phone: true } },
             createdBy: { select: { id: true, name: true, role: true } },
           },
         });
@@ -411,6 +520,8 @@ export class PaymentsService {
               oldAmount,
               newAmount,
               diff,
+              srName: effectiveSrName,
+              srUserId: effectiveSrUserId,
             },
           },
         });
@@ -448,6 +559,29 @@ export class PaymentsService {
               },
             },
           });
+
+          // Restore CustomerSrDue if this collection had an assigned SR
+          if (payment.srName) {
+            const srDueRecord = await tx.customerSrDue.findFirst({
+              where: {
+                customerId: payment.customerId,
+                OR: [
+                  { srName: { equals: payment.srName, mode: "insensitive" } },
+                  ...(payment.srUserId ? [{ srUserId: payment.srUserId }] : []),
+                ],
+              },
+            });
+            if (srDueRecord) {
+              await tx.customerSrDue.update({
+                where: { id: srDueRecord.id },
+                data: {
+                  currentDue: {
+                    increment: amount,
+                  },
+                },
+              });
+            }
+          }
         } else if (payment.type === "SUPPLIER_PAYMENT" && payment.supplierId) {
           await tx.supplier.update({
             where: { id: payment.supplierId },
@@ -473,6 +607,8 @@ export class PaymentsService {
               receiptNumber: payment.receiptNumber,
               type: payment.type,
               restoredAmount: amount,
+              srName: payment.srName,
+              srUserId: payment.srUserId,
             },
           },
         });
