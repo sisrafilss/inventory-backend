@@ -71,7 +71,10 @@ export const createCustomerSchema = z.object({
         }),
       )
       .optional(),
-    customerType: z.enum(["RETAIL", "WHOLESALE"]).optional().default("WHOLESALE"),
+    customerType: z
+      .enum(["RETAIL", "WHOLESALE"])
+      .optional()
+      .default("WHOLESALE"),
     isActive: z.boolean().optional(),
   }),
 });

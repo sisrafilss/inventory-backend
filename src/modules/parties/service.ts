@@ -760,7 +760,9 @@ export class PartiesService {
         ...(newCurrentDue !== undefined && {
           currentDue: newCurrentDue,
         }),
-        ...(data.customerType !== undefined && { customerType: data.customerType }),
+        ...(data.customerType !== undefined && {
+          customerType: data.customerType,
+        }),
         ...(data.isActive !== undefined && { isActive: data.isActive }),
       },
       include: {

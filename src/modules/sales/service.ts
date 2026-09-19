@@ -704,7 +704,13 @@ export class SalesService {
         orderBy: { createdAt: "desc" },
         include: {
           customer: {
-            select: { id: true, name: true, phone: true, currentDue: true, customerType: true },
+            select: {
+              id: true,
+              name: true,
+              phone: true,
+              currentDue: true,
+              customerType: true,
+            },
           },
           warehouse: {
             select: { id: true, name: true },
@@ -738,9 +744,7 @@ export class SalesService {
     ]);
 
     return {
-      sales: sales.map((s) =>
-        this.formatSaleResponse(s, requestUser.role),
-      ),
+      sales: sales.map((s) => this.formatSaleResponse(s, requestUser.role)),
       meta: {
         total,
         page,

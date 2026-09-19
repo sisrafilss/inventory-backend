@@ -52,7 +52,9 @@ export class ReportsService {
         orderBy: { createdAt: "desc" },
         include: {
           createdBy: { select: { id: true, name: true, email: true } },
-          customer: { select: { id: true, name: true, phone: true, customerType: true } },
+          customer: {
+            select: { id: true, name: true, phone: true, customerType: true },
+          },
           items: {
             include: {
               product: { select: { id: true, name: true, sku: true } },
@@ -323,7 +325,9 @@ export class ReportsService {
             srName: { equals: srGroup, mode: "insensitive" },
             currentDue: { gt: 0 },
             customer: {
-              ...(customerType && customerType !== "ALL" ? { customerType } : {}),
+              ...(customerType && customerType !== "ALL"
+                ? { customerType }
+                : {}),
               ...(s
                 ? {
                     OR: [

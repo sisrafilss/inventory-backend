@@ -218,15 +218,15 @@ model Supplier {
 }
 
 model Customer {
-  id          String   @id @default(uuid())
-  code        String   @unique
-  name        String
-  companyName String?
-  phone       String?
-  email       String?
-  address     String?
-  openingDue  Decimal  @default(0.00) @db.Decimal(12, 2)
-  currentDue  Decimal  @default(0.00) @db.Decimal(12, 2)
+  id           String       @id @default(uuid())
+  code         String       @unique
+  name         String
+  companyName  String?
+  phone        String?
+  email        String?
+  address      String?
+  openingDue   Decimal      @default(0.00) @db.Decimal(12, 2)
+  currentDue   Decimal      @default(0.00) @db.Decimal(12, 2)
   srGroup      String?
   customerType CustomerType @default(WHOLESALE)
   isActive     Boolean      @default(true)
