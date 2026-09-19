@@ -103,6 +103,8 @@ export class SalesService {
       discountPercent?: number;
       paidAmount?: number;
       note?: string;
+      srUserId?: string | null;
+      srName?: string | null;
       items: Array<{
         productId: string;
         warehouseId?: string;
@@ -432,6 +434,8 @@ export class SalesService {
             customerName,
             customerPhone,
             note: data.note?.trim() || null,
+            srUserId: data.srUserId || null,
+            srName: data.srName?.trim() || null,
             items: {
               create: saleItemsData,
             },
@@ -448,6 +452,9 @@ export class SalesService {
             },
             warehouse: {
               select: { id: true, name: true },
+            },
+            srUser: {
+              select: { id: true, name: true, phone: true },
             },
             items: {
               include: {
@@ -535,14 +542,51 @@ export class SalesService {
           });
         }
 
-        // Increment Customer current dues if outstanding credit
-        if (data.customerId && dueAmount > 0) {
-          await tx.customer.update({
-            where: { id: data.customerId },
-            data: {
-              currentDue: { increment: dueAmount },
-            },
-          });
+        // Increment Customer current dues if outstanding credit, and track SR assignment
+        if (data.customerId) {
+          if (dueAmount > 0) {
+            await tx.customer.update({
+              where: { id: data.customerId },
+              data: {
+                currentDue: { increment: dueAmount },
+              },
+            });
+          }
+
+          // If an SR is assigned, also update or create CustomerSrDue
+          const effectiveSrName = data.srName?.trim() || null;
+          if (effectiveSrName) {
+            const existingSrDue = await tx.customerSrDue.findUnique({
+              where: {
+                customerId_srName: {
+                  customerId: data.customerId,
+                  srName: effectiveSrName,
+                },
+              },
+            });
+
+            if (existingSrDue) {
+              if (dueAmount > 0 || (data.srUserId && !existingSrDue.srUserId)) {
+                await tx.customerSrDue.update({
+                  where: { id: existingSrDue.id },
+                  data: {
+                    ...(dueAmount > 0 ? { currentDue: { increment: dueAmount } } : {}),
+                    srUserId: data.srUserId || existingSrDue.srUserId,
+                  },
+                });
+              }
+            } else {
+              await tx.customerSrDue.create({
+                data: {
+                  customerId: data.customerId,
+                  srName: effectiveSrName,
+                  srUserId: data.srUserId || null,
+                  openingDue: 0,
+                  currentDue: dueAmount > 0 ? dueAmount : 0,
+                },
+              });
+            }
+          }
         }
 
         // Audit log
@@ -559,6 +603,8 @@ export class SalesService {
               paidAmount,
               dueAmount,
               itemCount: sale.items.length,
+              srUserId: data.srUserId || undefined,
+              srName: data.srName?.trim() || undefined,
             },
           },
           tx,
@@ -578,6 +624,8 @@ export class SalesService {
       status?: SaleStatus;
       createdById?: string;
       customerId?: string;
+      srUserId?: string;
+      srName?: string;
       search?: string;
       startDate?: string;
       endDate?: string;
@@ -597,6 +645,14 @@ export class SalesService {
       where.customerId = query.customerId;
     }
 
+    if (query.srUserId) {
+      where.srUserId = query.srUserId;
+    }
+
+    if (query.srName && query.srName.trim()) {
+      where.srName = { contains: query.srName.trim(), mode: "insensitive" };
+    }
+
     if (query.status) {
       where.status = query.status;
     }
@@ -607,6 +663,7 @@ export class SalesService {
         { referenceNumber: { contains: s, mode: "insensitive" } },
         { customerName: { contains: s, mode: "insensitive" } },
         { customerPhone: { contains: s, mode: "insensitive" } },
+        { srName: { contains: s, mode: "insensitive" } },
         {
           customer: {
             name: { contains: s, mode: "insensitive" },
@@ -640,6 +697,9 @@ export class SalesService {
           },
           warehouse: {
             select: { id: true, name: true },
+          },
+          srUser: {
+            select: { id: true, name: true, phone: true },
           },
           items: {
             include: {
@@ -699,6 +759,9 @@ export class SalesService {
         },
         warehouse: {
           select: { id: true, name: true },
+        },
+        srUser: {
+          select: { id: true, name: true, phone: true },
         },
         createdBy: {
           select: { id: true, name: true, email: true, phone: true },

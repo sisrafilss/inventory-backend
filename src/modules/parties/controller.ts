@@ -208,6 +208,24 @@ export class PartiesController {
     }
   }
 
+  static async addCustomerSr(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await PartiesService.addCustomerSr(
+        req.user!.id,
+        req.params.id,
+        req.body,
+      );
+      return sendSuccess(
+        res,
+        result,
+        "SR assigned to customer successfully",
+        201,
+      );
+    } catch (error) {
+      next(error);
+    }
+  }
+
   // Summary
   static async getDuesSummary(req: Request, res: Response, next: NextFunction) {
     try {

@@ -106,6 +106,16 @@ export const updateCustomerSchema = z.object({
   }),
 });
 
+export const addCustomerSrSchema = z.object({
+  params: z.object({
+    id: z.string().uuid("Invalid customer ID"),
+  }),
+  body: z.object({
+    srName: z.string().trim().min(1, "SR name cannot be empty").max(255),
+    srUserId: z.string().uuid("Invalid SR user ID").optional().nullable().or(z.literal("")),
+  }),
+});
+
 export const listPartiesSchema = z.object({
   query: z.object({
     search: z.string().optional(),
@@ -114,3 +124,4 @@ export const listPartiesSchema = z.object({
     srGroup: z.string().optional(),
   }),
 });
+

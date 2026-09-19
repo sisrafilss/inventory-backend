@@ -18,6 +18,8 @@ export const createSaleSchema = z.object({
       .optional(),
     paidAmount: z.number().min(0, "Paid amount cannot be negative").optional(),
     note: z.string().optional(),
+    srUserId: z.string().uuid("Invalid SR user ID").nullable().optional(),
+    srName: z.string().max(255).nullable().optional(),
     items: z
       .array(
         z
@@ -55,6 +57,8 @@ export const listSalesSchema = z.object({
     limit: z.string().optional(),
     status: z.nativeEnum(SaleStatus).optional(),
     createdById: z.string().optional(),
+    srUserId: z.string().uuid().optional(),
+    srName: z.string().optional(),
     search: z.string().optional(),
     startDate: z.string().optional(),
     endDate: z.string().optional(),

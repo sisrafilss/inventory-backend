@@ -7,6 +7,7 @@ import {
   updateSupplierSchema,
   createCustomerSchema,
   updateCustomerSchema,
+  addCustomerSrSchema,
   listPartiesSchema,
 } from "./schema.js";
 import { Role } from "@prisma/client";
@@ -66,6 +67,12 @@ router.patch(
   requireRoles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER),
   validateRequest(updateCustomerSchema),
   PartiesController.updateCustomer,
+);
+router.post(
+  "/customers/:id/sr",
+  requireRoles(Role.SUPER_ADMIN, Role.ADMIN, Role.MANAGER),
+  validateRequest(addCustomerSrSchema),
+  PartiesController.addCustomerSr,
 );
 router.delete(
   "/customers/:id",

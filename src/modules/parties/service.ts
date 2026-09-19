@@ -796,6 +796,69 @@ export class PartiesService {
     return { message: "Customer deleted successfully." };
   }
 
+  static async addCustomerSr(
+    actorId: string,
+    customerId: string,
+    data: { srName: string; srUserId?: string | null },
+  ) {
+    const customer = await prisma.customer.findUnique({
+      where: { id: customerId },
+    });
+    if (!customer) {
+      throw new AppError("Customer not found.", 404, "CUSTOMER_NOT_FOUND");
+    }
+
+    const trimmedName = data.srName.trim();
+    const effectiveUserId =
+      data.srUserId && data.srUserId.trim() ? data.srUserId.trim() : null;
+
+    const existing = await prisma.customerSrDue.findUnique({
+      where: {
+        customerId_srName: {
+          customerId,
+          srName: trimmedName,
+        },
+      },
+    });
+
+    let result;
+    if (existing) {
+      if (effectiveUserId && !existing.srUserId) {
+        result = await prisma.customerSrDue.update({
+          where: { id: existing.id },
+          data: { srUserId: effectiveUserId },
+          include: { srUser: { select: { id: true, name: true, phone: true } } },
+        });
+      } else {
+        result = await prisma.customerSrDue.findUnique({
+          where: { id: existing.id },
+          include: { srUser: { select: { id: true, name: true, phone: true } } },
+        });
+      }
+    } else {
+      result = await prisma.customerSrDue.create({
+        data: {
+          customerId,
+          srName: trimmedName,
+          srUserId: effectiveUserId,
+          openingDue: 0,
+          currentDue: 0,
+        },
+        include: { srUser: { select: { id: true, name: true, phone: true } } },
+      });
+    }
+
+    await logAudit({
+      actorId,
+      action: "CUSTOMER_SR_ADDED",
+      entityType: "Customer",
+      entityId: customerId,
+      metadata: { srName: trimmedName, srUserId: effectiveUserId },
+    });
+
+    return result;
+  }
+
   // ================= SUMMARY =================
   static async getDuesSummary() {
     const [customerDues, supplierDues] = await Promise.all([
